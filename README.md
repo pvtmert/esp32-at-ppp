@@ -1,3 +1,14 @@
+# This Fork
+Contains code to use lwip PPP client or server.
+
+* AT+PPPD      Standard way to start PPP.
+* AT+PPPD?     Shows format for settings.
+* AT+PPPD=     <local_IP_address>:<remote_IP_address>, (0-127)  IP setting is the same as pppd. The trailing number is a register for enabling and disabling server settings (not implemented). 
+* ATDTPPPD;    Modem script compatible command to start PPPD. Enter 'PPPD' as the phone number in a modem script and it will issue this command to start PPPD.
+* ATDTPPPD     See above.
+
+[Full espressif AT command documentation](https://www.espressif.com/sites/default/files/documentation/ESP32_AT_Instruction_Set_and_Examples__EN.pdf)
+
 # Overview
 libat_core.a is AT Command Core, and it is the core of AT command, including the default AT instruction set, the AT command parsing, execution and responding. The lib contains 4 kinds of command, such as AT+TEST=?, AT+TEST?, AT+TEST=“abc” and AT+TEST. It supports custom AT commands based on the lib and related APIs, and ones can also define input and output medium, like uart, spi, socket, bt, etc.
 
