@@ -22,9 +22,14 @@ factory_bin: build/download.config
 		--flash_size $(CONFIG_ESPTOOLPY_FLASHSIZE) \
 		--flash_speed $(CONFIG_ESPTOOLPY_FLASHFREQ)
 
-patch: patch.out
+patch: build/patch.out
 
-patch.out:
+build/patch.out: pppd-idf.patch pppd-lwip.patch
 	cd esp-idf; git apply -v ../pppd-idf.patch
 	cd esp-idf/components/lwip/lwip; git apply -v ../../../../pppd-lwip.patch
-	touch patch.out
+	touch build/patch.out
+
+unpatch:
+	cd esp-idf; git apply -R -v ../pppd-idf.patch
+	cd esp-idf/components/lwip/lwip; git apply -R -v ../../../../pppd-lwip.patch
+	rm -f build/patch.out
