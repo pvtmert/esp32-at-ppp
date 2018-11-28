@@ -1,5 +1,5 @@
-/*
- *
+/* at_pppd.c Copyright 2018, Eric Pooch
+ * <insert MIT license here>
  */
 
 #include <stdlib.h>
@@ -29,6 +29,8 @@
 #include "lwip/dns.h"
 
 #include "debug/lwip_debug.h"
+
+#ifdef CONFIG_PPP_SUPPORT
 
 #define BUF_SIZE (1024)
 #define MAX_IP_LEN (15)
@@ -334,5 +336,6 @@ uint8_t at_exeCmdPpp(uint8_t *cmd_name)
 	return ESP_AT_RESULT_CODE_OK;
 }
 
-
-
+#else
+#warning CONFIG_PPP_SUPPORT is disabled!
+#endif
