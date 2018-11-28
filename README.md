@@ -7,6 +7,12 @@ Contains code to use lwip PPP client or server.
 * ATDTPPPD;    Modem script compatible command to start PPPD. Enter 'PPPD' as the phone number in a modem script and it will issue this command to start PPPD.
 * ATDTPPPD     See above.
 
+run:
+$  make patch flash
+to update esp-idf and esp-lwip with changes to enable PPPD server and have a clean build.
+You will need to enable PPP support and PPP server support in the framework configuration:
+Component config  --->  LWIP  ---> Enable PPP support (new/experimental)  --->   Enable PPP server support (new/experimental) 
+
 [Full espressif AT command documentation](https://www.espressif.com/sites/default/files/documentation/ESP32_AT_Instruction_Set_and_Examples__EN.pdf)
 
 # Overview
