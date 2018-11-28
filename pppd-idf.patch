@@ -1,0 +1,34 @@
+diff --git a/components/lwip/Kconfig b/components/lwip/Kconfig
+index f4b048351..730b6f059 100644
+--- a/components/lwip/Kconfig
++++ b/components/lwip/Kconfig
+@@ -476,6 +476,13 @@ menuconfig PPP_SUPPORT
+ 
+         PPP over serial support is experimental and unsupported.
+ 
++config PPP_SERVER
++    bool "Enable PPP server support (new/experimental)"
++    depends on PPP_SUPPORT
++    default n
++    help
++        Enable PPP server. Only PPP server over serial is possible.
++
+ config PPP_PAP_SUPPORT
+    bool "Enable PAP support"
+    depends on PPP_SUPPORT
+diff --git a/components/lwip/port/esp32/include/lwipopts.h b/components/lwip/port/esp32/include/lwipopts.h
+index 53b598609..1ce291be3 100644
+--- a/components/lwip/port/esp32/include/lwipopts.h
++++ b/components/lwip/port/esp32/include/lwipopts.h
+@@ -577,6 +577,11 @@
+ #if PPP_SUPPORT
+ 
+ /**
++ * PPP_SERVER==1: Enable PPP server.
++ */
++#define PPP_SERVER                     CONFIG_PPP_SERVER
++
++/**
+  * PAP_SUPPORT==1: Support PAP.
+  */
+ #define PAP_SUPPORT                     CONFIG_PPP_PAP_SUPPORT

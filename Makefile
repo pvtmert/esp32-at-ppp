@@ -15,9 +15,16 @@ EXTRA_CFLAGS += -DSDK_GIT=IDF_VER
 
 include $(IDF_PATH)/make/project.mk
 
-factory_bin:
+factory_bin: build/download.config
 	$(PYTHON) $(ESP_AT_PROJECT_PATH)/tools/esp32_at_combine.py \
 		--bin_directory $(ESP_AT_PROJECT_PATH)/build \
 		--flash_mode $(CONFIG_ESPTOOLPY_FLASHMODE) \
 		--flash_size $(CONFIG_ESPTOOLPY_FLASHSIZE) \
 		--flash_speed $(CONFIG_ESPTOOLPY_FLASHFREQ)
+
+patch: patch.out
+
+patch.out:
+	cd esp-idf; git apply -v ../pppd-idf.patch
+	cd esp-idf/components/lwip/lwip; git apply -v ../../../../pppd-lwip.patch
+	touch patch.out
