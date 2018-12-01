@@ -1,5 +1,25 @@
-/* at_pppd.c Copyright 2018, Eric Pooch
- * <insert MIT license here>
+/*
+ * ESPRESSIF MIT License
+ *
+ * Copyright (c) 2017 Eric S. Pooch
+ *
+ * Permission is hereby granted for use on ESPRESSIF SYSTEMS ESP32 only, in which case,
+ * it is free of charge, to any person obtaining a copy of this software and associated
+ * documentation files (the "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the Software is furnished
+ * to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all copies or
+ * substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
  */
 
 #include <stdlib.h>
@@ -9,7 +29,6 @@
 #include "esp_system.h"
 
 #include "esp_log.h"
-#include "esp_at.h"
 
 #include "at_pppd.h"
 
@@ -35,6 +54,11 @@
 #define BUF_SIZE (1024)
 #define MAX_IP_LEN (15)
 
+static esp_at_cmd_struct at_pppd_cmd[] = {
+    {"+PPPD", at_testCmdPpp, at_queryCmdPpp, at_setupCmdPpp, at_exeCmdPpp},
+    {"DTPPPD", at_testCmdPpp, at_queryCmdPpp, at_setupCmdPpp, at_exeCmdPpp},
+    {"DTPPPD;", at_testCmdPpp, at_queryCmdPpp, at_setupCmdPpp, at_exeCmdPpp},
+};
 
 #define PPP_IP_DELIM ':'
 #define PPP_TEST_CMD '?'
@@ -55,20 +79,27 @@ static bool keep_running = true;
 typedef struct at_ppp_config
 {
 #if PPP_SERVER
-    struct ppp_addrs addrs; /*  ip4_addr_t our_ipaddr, his_ipaddr, netmask, dns1, dns2; */
+    struct ppp_addrs addrs; /* ip4_addr_t our_ipaddr, his_ipaddr, netmask, dns1, dns2; */
 #else
 #warning PPP_SERVER is disabled!
 #endif
+    
     uint8_t  options;
 } at_ppp_config;
 
 static struct at_ppp_config pppd_config;
 
+bool esp_at_pppd_cmd_regist(void)
+{
+    return esp_at_custom_cmd_array_regist (at_pppd_cmd, sizeof(at_pppd_cmd)/sizeof(at_pppd_cmd[0]));
+    
+}
+
 uint8_t at_testCmdPpp(uint8_t *cmd_name)
 {
 	char response[((int)strlen((char *)cmd_name) + (int)strlen(PPP_AT_PARAMS))+2];
 	
-	sprintf(response, "%s:%s", cmd_name, PPP_AT_PARAMS);
+	sprintf(response, "\n%s:%s", cmd_name, PPP_AT_PARAMS);
 	uart_write_bytes(CONFIG_AT_UART_PORT, response, strlen(response));
 	
 	return ESP_AT_RESULT_CODE_OK;
@@ -82,12 +113,12 @@ uint8_t at_setupCmdPpp(uint8_t para_num)
 	char *para_str = NULL;
 	int32_t value = 0;
 
-	if (para_num != 2 ) return ESP_AT_RESULT_CODE_ERROR;
+	if (para_num != 2 ) return ESP_AT_CMD_ERROR_PARA_NUM(2,para_num);
 	
 	if (esp_at_get_para_as_str(cnt++, (uint8_t**)&para_str) == ESP_AT_PARA_PARSE_RESULT_FAIL)
 	{
 		ESP_LOGE(TAG, "Parse error on parameter: %d.", cnt-1);
-		return ESP_AT_RESULT_CODE_ERROR;
+		return ESP_AT_CMD_ERROR_PARA_TYPE(cnt-1);
 	}
 	else
 	{
@@ -113,14 +144,14 @@ uint8_t at_setupCmdPpp(uint8_t para_num)
 		else
 		{
 			ESP_LOGE(TAG, "Parameter %d requires \":\" delimeter.", cnt-1);
-			return ESP_AT_RESULT_CODE_ERROR;
+			return ESP_AT_CMD_ERROR_PARA_INVALID(cnt-1);
 		}
 	}
 	
 	if (esp_at_get_para_as_digit(cnt++, &value) == ESP_AT_PARA_PARSE_RESULT_FAIL)
 	{
 		ESP_LOGE(TAG, "Parse error on parameter: %d.", cnt-1);
-		return ESP_AT_RESULT_CODE_ERROR;
+        return ESP_AT_CMD_ERROR_PARA_TYPE(cnt-1);
 	}
 	pppd_config.options = (int8_t)value;
 	
@@ -131,6 +162,18 @@ uint8_t at_setupCmdPpp(uint8_t para_num)
 #endif /* PPP_SERVER */
 
 	return ESP_AT_RESULT_CODE_OK;
+}
+
+uint8_t at_queryCmdPpp(uint8_t *cmd_name)
+{
+    char response[128];
+
+#if PPP_SERVER
+    sprintf(response, "\n%s:\"%s:%s\",%d", cmd_name, ip4addr_ntoa(&pppd_config.addrs.his_ipaddr), ip4addr_ntoa(&pppd_config.addrs.his_ipaddr), pppd_config.options);
+    uart_write_bytes(CONFIG_AT_UART_PORT, response, strlen(response));
+
+#endif /* PPP_SERVER */
+    return ESP_AT_RESULT_CODE_OK;
 }
 
 /* PPP status callback example */
@@ -258,11 +301,12 @@ uint8_t at_exeCmdPpp(uint8_t *cmd_name)
 		return ESP_AT_RESULT_CODE_ERROR;
 	}
 
+#ifndef CONFIG_PPP_SUPPORT
 	//Set the default interface as ppp - we don't want this as a server.
-	//pppapi_set_default(ppp);
+	pppapi_set_default(ppp);
 	//ESP_LOGI(TAG, "After pppapi_set_default");
-	
-	//sifaddr(ppp, our, his, nm );
+    //sifaddr(ppp, our, his, nm );
+#endif
 	
 	//pppapi_set_auth(ppp, PPPAUTHTYPE_PAP, PPP_User, PPP_Pass);
 	//ESP_LOGI(TAG, "After pppapi_set_auth");

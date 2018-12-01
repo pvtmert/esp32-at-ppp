@@ -42,6 +42,12 @@
 #ifdef CONFIG_AT_ETHERNET_SUPPORT
 #include "at_eth_init.h"
 #endif
+
+#ifdef CONFIG_PPP_SUPPORT
+#include "at_pppd.h"
+#endif
+
+
 static uint8_t at_exeCmdCipupdate(uint8_t *cmd_name)//add get station ip and ap ip
 {
 
@@ -174,6 +180,12 @@ void app_main()
 #ifdef CONFIG_AT_EAP_COMMAND_SUPPORT
     if(esp_at_eap_cmd_regist() == false) {
         printf("regist eap cmd fail\r\n");
+    }
+#endif
+
+#ifdef CONFIG_PPP_SUPPORT
+    if(esp_at_pppd_cmd_regist() == false) {
+        printf("regist pppd cmd fail\r\n");
     }
 #endif
 

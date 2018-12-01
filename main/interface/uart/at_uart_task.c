@@ -38,10 +38,6 @@
 
 #include "at_interface.h"
 
-#ifdef CONFIG_PPP_SUPPORT
-#include "at_pppd.h"
-#endif
-
 typedef struct {
     int32_t baudrate;
     int8_t data_bits;
@@ -451,9 +447,6 @@ static esp_at_cmd_struct at_custom_cmd[] = {
     {"+UART", NULL, at_queryCmdUart, at_setupCmdUartDef, NULL},
     {"+UART_CUR", NULL, at_queryCmdUart, at_setupCmdUart, NULL},
     {"+UART_DEF", NULL, at_queryCmdUartDef, at_setupCmdUartDef, NULL},
-#ifdef CONFIG_PPP_SUPPORT
-    PPP_AT_CUSTOM_COMMANDS
-#endif
 };
 
 void at_status_callback (esp_at_status_type status)
