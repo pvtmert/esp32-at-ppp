@@ -35,6 +35,11 @@ config AT_BASE_COMMAND_SUPPORT
     default "y"
     depends on AT_ENABLE
 
+config AT_BROWSE_SUPPORT
+bool "AT web command support."
+    default "n"
+    depends on AT_ENABLE
+    
 config AT_WIFI_COMMAND_SUPPORT
     bool "AT wifi command support."
     default "y"
@@ -44,7 +49,7 @@ config AT_NET_COMMAND_SUPPORT
     bool "AT net command support."
     default "y"
     depends on AT_WIFI_COMMAND_SUPPORT
-    
+
 config AT_BLE_COMMAND_SUPPORT
     bool "AT ble command support."
     default "y"

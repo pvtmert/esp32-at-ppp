@@ -1,11 +1,15 @@
 # This Fork
+Contains code to contains a mini webbrowser (more like html parser).
+* AT+WEB= :    <URI>  download and parse webpage at URI.
+
 Contains code to use lwip PPP client or server.
 
-* AT+PPPD      Standard way to start PPP.
-* AT+PPPD?     Shows format for settings.
-* AT+PPPD=     <local_IP_address>:<remote_IP_address>, (0-127)  IP setting is the same as pppd. The trailing number is a register for enabling and disabling server settings (not implemented). 
-* ATDTPPPD;    Modem script compatible command to start PPPD. Enter 'PPPD' as the phone number in a modem script and it will issue this command to start PPPD.
-* ATDTPPPD     See above.
+* AT+PPPD :     Standard way to start PPP.
+* AT+PPPD? :   Shows current settings.
+* AT+PPPD=? :   Shows format for settings.
+* AT+PPPD= :    <local_IP_address>:<remote_IP_address>, (0-127)  IP setting is the same as pppd. The trailing number is a register for enabling and disabling server settings (not implemented). 
+* ATDTPPPD; :   Modem script compatible command to start PPPD. Enter 'PPPD' as the phone number in a modem script and it will issue this command to start PPPD.
+* ATDTPPPD :    See above.
 
 To update esp-idf and esp-lwip with changes to enable PPPD server and have an error-free build, run:
 

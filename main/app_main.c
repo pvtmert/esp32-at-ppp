@@ -47,6 +47,10 @@
 #include "at_pppd.h"
 #endif
 
+#ifdef CONFIG_AT_BROWSE_SUPPORT
+#include "at_browse.h"
+#endif
+
 
 static uint8_t at_exeCmdCipupdate(uint8_t *cmd_name)//add get station ip and ap ip
 {
@@ -189,6 +193,12 @@ void app_main()
     }
 #endif
 
+#ifdef CONFIG_AT_BROWSE_SUPPORT
+    if(esp_at_web_cmd_regist() == false) {
+        printf("regist web cmd fail\r\n");
+    }
+#endif
+    
 #ifdef CONFIG_AT_COMMAND_TERMINATOR
     esp_at_custom_cmd_line_terminator_set((uint8_t*)&cmd_terminator);
 #endif
