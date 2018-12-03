@@ -25,6 +25,7 @@
  try:
  
 AT+WEB="http://retro.hackaday.com"
+AT+WEB="https://raw.githubusercontent.com/cbracco/html5-test-page/master/index.html"
 */
 
 #include <stdlib.h>
@@ -57,8 +58,8 @@ void more(unsigned int read);
 #define BROWSE_AT_PARAMS "\"<URI>\""
 
 #define BUFF_SIZE 256
+static  char buff[BUFF_SIZE];
 
-static char buff[BUFF_SIZE];
 
 #define _ARGS1(...) __VA_ARGS__
 #define STRIP_PARENS(x) x
@@ -69,35 +70,49 @@ static const char *TAG = "webbrowser";
 
 static esp_at_cmd_struct at_web_cmd[] = {
     {"+WEB", at_testCmdBrowse, NULL, at_setupCmdBrowse, at_exeCmdBrowse},
+    {"+GET", at_testCmdBrowse, NULL, at_setupCmdGet, at_exeCmdBrowse},
 };
 
 static esp_http_client_config_t browse_config;
 
+static bool parse;
 
-
-
-esp_err_t browse_event_handle(esp_http_client_event_t *evt);
+static esp_err_t browse_event_handle(esp_http_client_event_t *evt);
 
 bool esp_at_web_cmd_regist(void)
 {
-    return esp_at_custom_cmd_array_regist (at_web_cmd, 1);
+    return esp_at_custom_cmd_array_regist (at_web_cmd, 2);
 }
 
 uint8_t at_testCmdBrowse(uint8_t *cmd_name)
 {
-	char response[((int)strlen((char *)cmd_name) + (int)strlen(BROWSE_AT_PARAMS))+2];
+    char response[((int)strlen((char *)cmd_name) + (int)strlen(BROWSE_AT_PARAMS))+2];
 	
 	sprintf(response, "%s:%s", cmd_name, BROWSE_AT_PARAMS);
-	uart_write_bytes(CONFIG_AT_UART_PORT, response, strlen(response));
+	esp_at_port_write_data((unsigned char *)response, strlen(response));
 	
 	return ESP_AT_RESULT_CODE_OK;
 }
 
+
+uint8_t at_setupCmdGet(uint8_t para_num)
+{
+    parse = false;
+    return at_setupCmdHttp(para_num);
+}
+
+
 uint8_t at_setupCmdBrowse(uint8_t para_num)
+{
+    parse = true;
+    return at_setupCmdHttp(para_num);
+}
+
+uint8_t at_setupCmdHttp(uint8_t para_num)
 {
 	int32_t para_idx = 0;
 	
-	char *para_str = NULL;
+	char *para_str;
 
 	if (para_num != 1 ) return ESP_AT_RESULT_CODE_ERROR;
 	
@@ -109,8 +124,8 @@ uint8_t at_setupCmdBrowse(uint8_t para_num)
 	else
 	{
         ESP_LOGE(TAG, "Raw URL: %s", para_str);
-
-        htmlparser_init();
+        if (parse)
+            htmlparser_init();
 
         browse_config.url = para_str;
         browse_config.event_handler = browse_event_handle;
@@ -132,6 +147,7 @@ uint8_t at_setupCmdBrowse(uint8_t para_num)
     }
     return ESP_AT_RESULT_CODE_ERROR;
 }
+
 
 esp_err_t browse_event_handle(esp_http_client_event_t *evt)
 {
@@ -155,9 +171,16 @@ esp_err_t browse_event_handle(esp_http_client_event_t *evt)
         if (!esp_http_client_is_chunked_response(evt->client))
         {
             //printf("%.*s", evt->data_len, (char*)evt->data);
-            htmlparser_parse((char*)evt->data, evt->data_len);
+            if (parse)
+            {
+                htmlparser_parse(evt->data, evt->data_len);
+                more(evt->data_len);
+            }
+            else
+            {
+                esp_at_port_write_data((unsigned char*)evt->data, evt->data_len);
+            }
         }
-            more(evt->data_len);
 
         break;
         case HTTP_EVENT_ON_FINISH:
@@ -180,7 +203,7 @@ void more(unsigned int read)
     if (count%2)
     {
         htmlparser_newline();
-        uart_write_bytes(CONFIG_AT_UART_PORT, more, strlen(more));
+        esp_at_port_write_data((unsigned char *)more, strlen(more));
         wait_for_input(' ');
     }
     count++;
@@ -208,7 +231,7 @@ uint8_t at_exeCmdBrowse(uint8_t *cmd_name)
 void htmlparser_link(char *text, unsigned char textlen, char *url)
 {
     PRINTF(("[%.*s](%s) ", textlen, text, url));
-    uart_write_bytes(CONFIG_AT_UART_PORT, buff, strlen(buff));
+    esp_at_port_write_data((unsigned char *)buff, strlen(buff));
 }
 
 void htmlparser_form(char *action)
@@ -224,21 +247,21 @@ void htmlparser_inputfield(unsigned char type, unsigned char size,
                            char *value, char *name)
 {
     PRINTF(("[   %.*s    ]", size, value));
-    uart_write_bytes(CONFIG_AT_UART_PORT, buff, strlen(buff));
+    esp_at_port_write_data((unsigned char *)buff, strlen(buff));
     
 }
 
 void htmlparser_newline(void)
 {
     PRINTF(("\r\n"));
-    uart_write_bytes(CONFIG_AT_UART_PORT, buff, strlen(buff));
+    esp_at_port_write_data((unsigned char *)buff, strlen(buff));
     
 }
 
 void htmlparser_word(char *word, unsigned char wordlen)
 {
     PRINTF(("%.*s ", wordlen, word));
-    uart_write_bytes(CONFIG_AT_UART_PORT, buff, strlen(buff));
+    esp_at_port_write_data((unsigned char *)buff, strlen(buff));
 }
 
 void htmlparser_tag(char *tag)

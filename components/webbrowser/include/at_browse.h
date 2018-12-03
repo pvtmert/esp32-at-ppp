@@ -33,6 +33,10 @@ uint8_t at_testCmdBrowse(uint8_t *cmd_name);
 
 uint8_t at_setupCmdBrowse(uint8_t para_num);
 
+uint8_t at_setupCmdGet(uint8_t para_num);
+
+uint8_t at_setupCmdHttp(uint8_t para_num);
+
 uint8_t at_exeCmdBrowse(uint8_t *cmd_name);
 
 
