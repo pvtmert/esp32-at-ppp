@@ -99,6 +99,6 @@
 #define WWW_CONF_HISTORY_SIZE       10
 #define WWW_CONF_MAX_URLLEN         78
 #define WWW_CONF_MAX_NUMPAGEWIDGETS 20
-#define WWW_CONF_FORMS               0
+#define WWW_CONF_FORMS               1
 
 #endif /* __CONTIKI_CONF_H__ */
