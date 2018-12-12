@@ -43,6 +43,8 @@
 
 #include "libconio.h"
 
+static const char *TAG = "ctk-vt_at";
+
 #define NUL '\0'
 
 #define VT_AT_SEND_CODE(x) at_write_byte(ESC_KEY); \
@@ -56,8 +58,6 @@ static unsigned char curx=0, cury=0, rvrs=0, colr=0;
 
 /*----------------------------------------------------------------------------*/
 
-#define MAX_VT_CODE 16
-
 uint8_t at_read_bytes(char *dataptr, uint8_t len);
 uint8_t at_read_byte(char *byteptr);
 uint8_t at_write_byte(char byte);
@@ -69,25 +69,18 @@ char process_esc(void);
 
 uint8_t vt_init(void)
 {
-    int timeout;
-    char *key_buf = vt_at_info.key_buf;
-    
     if (vt_at_info.inited == 0)
     {
-        VT_AT_SEND_CODE(ID_REQ);
-        
-        for (timeout = 0;
-             *key_buf != (char)ESC_KEY && timeout < ESC_SEQ_TO;
-             timeout++)
+        char *id_cmd_str[3] = { VT52_ID_REQ, VT100_ID_REQ, NULL };
+        int i, timeout;
+        char *key_buf = vt_at_info.key_buf;
+
+        ESP_LOGE(TAG, "Identifying VT");
+
+        //VT_AT_SEND_CODE(ID_REQ);
+        for (i=0; id_cmd_str[i] != NULL; i++)
         {
-            at_read_byte(key_buf);
-        }
-        
-        if (timeout >= ESC_SEQ_TO)
-        {
-            // VT52 failed, try VT100.
-            at_write_str(VT100_ID_REQ);
-            
+            at_write_str(id_cmd_str[i]);
             for (timeout = 0;
                  *key_buf != (char)ESC_KEY && timeout < ESC_SEQ_TO;
                  timeout++)
@@ -96,18 +89,19 @@ uint8_t vt_init(void)
             }
             if (timeout >= ESC_SEQ_TO)
             {
-                // We failed to get the remote VT type.
+                ESP_LOGE(TAG, "Timeout on IDENTIFY: %s", id_cmd_str[i]);
             }
             else
             {
-                process_esc();
+                *key_buf = process_esc();
+                // FIXME check vt_at_info.ourtype
                 vt_at_info.inited = 1;
+                break;
             }
         }
-        else
-        {
-            vt_at_info.inited = 1;
-        }
+
+        ESP_LOGE(TAG, "VT Type = %c", vt_at_info.our_type);
+        *key_buf = NUL;
     }
     return vt_at_info.inited;
 }
@@ -118,37 +112,7 @@ uint8_t vt_init(void)
     at_write_str(VT52_CMD_STR(CLR_END_SCRN));
 }*/
 
-void ctk_arch_draw_char(char c,
-                        unsigned char xpos,
-                        unsigned char ypos,
-                        unsigned char reversedflag,
-                        unsigned char color)
-{
-    if (xpos!=curx+1 || ypos!=cury)
-    {
-        if (vt_at_info.our_type == VT100)
-        {
-            at_write_str(VT52_GXY_STR(xpos, xpos));
-            
-            if (reversedflag!=rvrs)
-            {
-                if (reversedflag)
-                    at_write_str(REVERSE);
-                else
-                    at_write_str(OFF);
-            }
-        }
-        else if (vt_at_info.our_type == VT52)
-        {
-            at_write_str(VT100_GXY_STR(xpos, xpos));
-        }
-    }
-    at_write_byte(c);
-    
-    curx=xpos; cury=ypos; rvrs=reversedflag; colr=color;
-}
 
-/*----------------------------------------------------------------------------*/
 uint8_t at_read_bytes(char *dataptr, uint8_t len)
 {
     return esp_at_port_read_data((unsigned char *)dataptr, len);
@@ -173,45 +137,55 @@ uint8_t at_write_str(char *str)
 char process_esc(void)
 {
     /* only call this if terminal is already in escape sequence! */
+
     int timeout = 0;
     char major = NUL;
-    char esc_buf[MAX_VT_CODE];
+    char *buf_loc = vt_at_info.esc_buf;
     
-    char *buf_loc = esc_buf;
-    *buf_loc = (char)ESC_KEY;
+    memset(vt_at_info.esc_buf, NUL, MAX_VT_CODE);
+    
+    *buf_loc = ESC_KEY;
     buf_loc++;
     
     while (at_read_byte(buf_loc) != 1) {};
-    
-    if ( strchr(ANSI_START_SEQ, *buf_loc)  )
+    ESP_LOGE(TAG, "processing esc:");
+    printf("%c ", *buf_loc);
+    //ESP_LOGE(TAG, "processing esc1: %c", *buf_loc);
+
+    if ( strchr(ANSI_START_SEQ, *buf_loc) )
     {
         major = *buf_loc;
         // We are in a continuing esc sequence, read until we get a final byte.
-        for ( buf_loc++, timeout = 0;
-             (buf_loc - esc_buf < MAX_VT_CODE
-              && (*buf_loc < ENDBYTE_RANGE_START || *buf_loc > ENDBYTE_RANGE_END)
-              && timeout < ESC_SEQ_TO);
-             buf_loc++, timeout++ )
+        do
         {
+            buf_loc++;
             if (at_read_byte(buf_loc) != 1)
                 buf_loc--;
+            printf(" %c", *buf_loc);
         }
+        while (*buf_loc < ENDBYTE_RANGE_START || *buf_loc > ENDBYTE_RANGE_END);
         // We have a complete code or timeout.
+        printf("\r\n");
+
     }
-    // Pass along the major and minor codes, which are good enough.
+    // Pass along the major and minor codes, which are good enough for us.
     // If VT52, major will be '\0' (NUL).  */
     if (timeout < 1000)
         return do_esc(major, *buf_loc);
-    
+    else
+        ESP_LOGE(TAG, "process_esc timeout");
+
     return NUL;
 }
 
 char do_esc(char major, char minor)
 {
+    ESP_LOGE(TAG, "doing esc: %c %c", major, minor);
+
     switch (major){
         case NUL:
             // If no major (most of VT52), fall through to each major VT100
-            // code, checking the minor until an unconditional default or break.
+            // code, checking the minor until an unconditional break.
             
         case SS3_START:
             switch (minor)
@@ -230,20 +204,21 @@ char do_esc(char major, char minor)
             case CURS_RIGHT_KEY:    return CH_CURS_RIGHT;
             case CURS_LEFT_KEY:     return CH_CURS_LEFT;
                 
-            case KEY_END:           return F1_KEY;
+            case KEY_END:           return CH_DEL;
                 
             case VT100:   vt_at_info.our_type = VT100; break;
             case VT102:   vt_at_info.our_type = VT100; break; // close enough
-            default: return NUL; // End of VT52 with no major fall through.
         }
+            break; // End of fall through for VT52 with no major.
             
         case ID_RESP_START:
             switch (minor)
         {
             case VT100_EM:  VT_AT_SEND_CODE(ANSI_CMD);  // enter ANSI mode
-            default:        vt_at_info.our_type = VT52; // close enough
+            default:        vt_at_info.our_type = VT52; break;// close enough
                 
         }
+        default: ESP_LOGE(TAG, "Unhandled esc: %c%c", major, minor);
     }
     return NUL;
 }
@@ -252,12 +227,15 @@ char do_esc(char major, char minor)
 unsigned char
 ctk_arch_keyavail(void)
 {
+    if (vt_at_info.inited == 0)
+        vt_init();
+    
     char *key_buf = vt_at_info.key_buf;
     
     // If no char in buf yet, check if one is available.
     if (*key_buf == NUL && at_read_byte(key_buf) > 0)
     {
-        // process all of the esc sequences that don't indicate a key press.
+        // process all of the esc sequences that don't return a key press.
         while (*key_buf == (char)ESC_KEY && (*key_buf = process_esc()) == NUL)
         {
             at_read_byte(key_buf);
@@ -278,7 +256,7 @@ ctk_arch_getkey(void)
     
     if (*key_buf == (char)ESC_KEY)
     {
-        process_esc();
+        *key_buf = process_esc();
     }
     
     key_buf[1] = *key_buf;
@@ -288,4 +266,44 @@ ctk_arch_getkey(void)
 }
 
 
+void ctk_arch_draw_char(char c,
+                        unsigned char xpos,
+                        unsigned char ypos,
+                        unsigned char reversedflag,
+                        unsigned char color)
+{
+    if (xpos!=curx+1 || ypos!=cury)
+    {
+        if (vt_at_info.our_type == VT100)
+        {
+            
+            VT100_GXY_STR(xpos, ypos, vt_at_info.esc_buf);
+            at_write_str(vt_at_info.esc_buf);
+
+            if (reversedflag!=rvrs)
+            {
+                if (reversedflag)
+                    at_write_str(REVERSE);
+                else
+                    at_write_str(OFF);
+            }
+            if (color!=colr)
+            {
+                if (color)
+                    at_write_str(REVERSE);
+                else
+                    at_write_str(OFF);
+            }
+        }
+        else if (vt_at_info.our_type == VT52)
+        {
+            at_write_str(VT52_GXY_STR(xpos, ypos));
+        }
+    }
+    at_write_byte(c);
+    
+    curx=xpos; cury=ypos; rvrs=reversedflag; colr=color;
+}
+
+/*----------------------------------------------------------------------------*/
 

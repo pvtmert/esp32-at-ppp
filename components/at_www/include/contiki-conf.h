@@ -58,7 +58,7 @@
 #define CTK_CONF_MENUS          0
 
 
-#define CH_DEL          '\b'
+#define CH_DEL          0x7F
 #define CH_ENTER        0x0D
 #define CH_ESC          0x1B
 #define CH_CURS_UP      0x0B
@@ -94,9 +94,10 @@
 #define IRC_CONF_WIDTH  80
 #define IRC_CONF_HEIGHT 24
 
+//#define WWW_CONF_HOMEPAGE
 #define WWW_CONF_WEBPAGE_WIDTH      80
-#define WWW_CONF_WEBPAGE_HEIGHT     23
-#define WWW_CONF_HISTORY_SIZE       10
+#define WWW_CONF_WEBPAGE_HEIGHT     19
+#define WWW_CONF_HISTORY_SIZE       6
 #define WWW_CONF_MAX_URLLEN         78
 #define WWW_CONF_MAX_NUMPAGEWIDGETS 20
 #define WWW_CONF_FORMS               1

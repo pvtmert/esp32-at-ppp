@@ -21,7 +21,8 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  */
-/*  
+/*
+ Enables commands for esp32-at to start the contiki webbrowser app.
  try:
  
 AT+WEB="http://retro.hackaday.com"
@@ -105,6 +106,7 @@ uint8_t at_setupCmdBrowse(uint8_t para_num)
     {
         process_run();
     }
+    process_exit(&www_process);
     process_exit(&ctk_process);
     
     return ESP_AT_RESULT_CODE_OK;

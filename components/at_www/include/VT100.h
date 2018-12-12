@@ -18,6 +18,7 @@
 
 typedef enum
 {
+    DUMB,
     VT50            = 'A',
     VT55            = 'C',
     VT50H           = 'H',
@@ -87,8 +88,8 @@ typedef enum
     COMPLETED       = IN_ESC<<7,
 } vt_esc_loc;
 
-
 #define VTBUF_SIZE 3
+#define MAX_VT_CODE 16
 
 struct vt_info
 {
@@ -96,10 +97,21 @@ struct vt_info
     vt52_esc_code   last_esc;
     vt_esc_loc      esc_stat;
     char            key_buf[VTBUF_SIZE];
-    unsigned char         inited;
+    char            esc_buf[MAX_VT_CODE];
+    unsigned char   inited;
 };
 
 // ANSI COLORS
+typedef enum
+{
+    ATTR_OFF,
+    ATTR_BOLD,
+    ATTR_UNDER,
+    ATTR_BLINK,
+    ATTR_REVERSE,
+    ATTR_INVISIBLE,
+} ansi_textattrib;
+
 typedef enum
 {
     COLOR_BLACK,
@@ -110,6 +122,9 @@ typedef enum
     COLOR_MAGENTA,
     COLOR_CYAN,
     COLOR_WHITE,
+    FRGND = 30,
+    BKGND = 40,
+    BRIGHT = 60,
 } ansi_colors;
 
 #define ANSI_START_SEQ "NOPX[/]^_"
@@ -120,27 +135,26 @@ typedef enum
 /* Temporary string with <ESC> and the command. */
 #define VT52_CMD_STR(c) (char[3]) {(char)ESC_KEY, (char)c, '\0'}
 
+/* Temporary string with <ESC>, [, and the command. */
 #define VT100_CMD_STR(c) (char[4]) {(char)CSI_START, (char)c, '\0'}
 
-/* Temporary string with <ESC>, VT52_GXY_STR, y+31 , x+31 for moving cursor. */
+/* Temporary string for moving VT55 cursor. */
 #define VT52_GXY_STR(x, y) (char[5]) {\
 (char)ESC_KEY, \
 (char)CURS_SET_CMD, \
 (y+33), (x+33), \
 '\0'}
 
-#define VT100_GXY_STR(x, y) (char[6]) {\
-(char)ESC_KEY, \
-(char)CSI_START, \
-(x+1), (y+1), \
-CURS_HOME_KEY, \
-'\0'}
+/* User declared string for moving VT100 cursor. */
+#define VT100_GXY_STR(x, y, buff) \
+    snprintf( buff , MAX_VT_CODE , "%c%c%d;%d%c", \
+    ESC_KEY, CSI_START, (y+1), (x+1), CURS_HOME_KEY);
 
 
 #define ASCII_ESC       "\033"
 
 //VT52
-#define IDENT           "\033Z"
+#define VT52_ID_REQ     "\033Z"
 #define VT100_ID_REQ    "\033[c"
 
 
@@ -156,7 +170,6 @@ CURS_HOME_KEY, \
 
 // POSITIONING
 #define CLS             "\033[2J"       // Esc[2J Clear entire screen
-#define GOTOXY(x,y)     "\033[x;yH"     // Esc[Line;ColumnH
 #define HOME            "\033[H"
 
 #define CUD(x)          "\033[xB"      // Move cursor up n lines

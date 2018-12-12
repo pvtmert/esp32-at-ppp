@@ -36,6 +36,8 @@
 #include <stddef.h>
 #include <stdlib.h>
 
+#include <errno.h>
+
 #include "ctk/ctk.h"
 #include "ctk/ctk-textentry-cmdline.h"
 #include "contiki-net.h"
@@ -316,6 +318,46 @@ end_page(char *status, void *focus)
                                             pageattribs + sizeof(pageattribs) - 5, 10));
 }
 /*-----------------------------------------------------------------------------------*/
+/* webclient_err():
+ *
+ * Show human readable error.
+ */
+int
+webclient_err(int error)
+{
+    printf("Received error: %d\r\n", error);
+    switch(error)
+    {
+        case ESP_OK:
+            return 0;
+        case ESP_ERR_HTTP_MAX_REDIRECT:
+            show_statustext(strerror(EMLINK));
+            break;
+        case ESP_ERR_HTTP_CONNECT:
+            show_statustext(strerror(ENOTCONN));
+            break;
+        case ESP_ERR_HTTP_WRITE_DATA:
+            show_statustext(strerror(EIO));
+            break;
+        case ESP_ERR_HTTP_FETCH_HEADER:
+            show_statustext(strerror(EBADMSG));
+            break;
+        case ESP_ERR_HTTP_INVALID_TRANSPORT:
+            show_statustext(strerror(EPROTONOSUPPORT));
+            break;
+        case ESP_ERR_HTTP_CONNECTING:
+            show_statustext(strerror(EINPROGRESS));
+            break;
+        case ESP_ERR_HTTP_EAGAIN:
+            show_statustext(strerror(EWOULDBLOCK));
+            break;
+        default:
+            show_statustext(strerror(EIO));
+            break;
+    }
+    return error;
+}
+/*-----------------------------------------------------------------------------------*/
 /* open_url():
  *
  * Called when the URL present in the global "url" variable should be
@@ -394,8 +436,9 @@ open_url(void)
     if (www_client == NULL) {
         show_statustext("Out of memory error");
     } else {
+        int err;
         show_statustext("Connecting...");
-        esp_err_t err = esp_http_client_perform(www_client);
+        webclient_err(esp_http_client_perform(www_client));
         esp_http_client_cleanup(www_client);
     }
 }
@@ -410,7 +453,7 @@ set_link(char *link)
 {
     register char *urlptr;
     
-    if(strncmp(link, http_http, 7) == 0) {
+    if(strncmp(link, http_http, 7) == 0 || strncmp(link, http_https, 8) == 0) {
         /* The link starts with http://. We just copy the contents of the
          link into the url string and jump away. */
         strncpy(url, link, WWW_CONF_MAX_URLLEN);
@@ -710,7 +753,7 @@ void
 webclient_datahandler(char *data, uint16_t len)
 {
     if(len > 0) {
-        if(strstr(webclient_mimetype, http_html + 1) != 0) {
+        if(/*strstr(webclient_mimetype, http_html + 1) != 0*/1) {
             count = (count + 1) & 3;
             show_statustext(receivingmsgs[count]);
             htmlparser_parse(data, len);
@@ -1037,21 +1080,21 @@ formsubmit(struct inputattrib *trigger)
 /*-----------------------------------------------------------------------------------*/
 esp_err_t www_event_handle(esp_http_client_event_t *evt)
 {
+    
     switch(evt->event_id) {
         case HTTP_EVENT_ERROR:
-            ESP_LOGI(TAG, "HTTP_EVENT_ERROR");
+            ESP_LOGE(TAG, "HTTP_EVENT_ERROR");
             webclient_aborted();
-            
             break;
         case HTTP_EVENT_ON_CONNECTED:
-            ESP_LOGI(TAG, "HTTP_EVENT_ON_CONNECTED");
+            ESP_LOGE(TAG, "HTTP_EVENT_ON_CONNECTED");
             webclient_connected();
             break;
         case HTTP_EVENT_HEADER_SENT:
-            ESP_LOGI(TAG, "HTTP_EVENT_HEADER_SENT");
+            ESP_LOGE(TAG, "HTTP_EVENT_HEADER_SENT");
             break;
         case HTTP_EVENT_ON_HEADER:
-            ESP_LOGI(TAG, "HTTP_EVENT_ON_HEADER");
+            ESP_LOGE(TAG, "HTTP_EVENT_ON_HEADER");
             if (strcmp("Content-Type", evt->header_key))
             {
                 strncpy(webclient_mimetype, evt->header_value, 64);
@@ -1059,7 +1102,7 @@ esp_err_t www_event_handle(esp_http_client_event_t *evt)
             //printf("%.*s", evt->data_len, (char*)evt->data);
             break;
         case HTTP_EVENT_ON_DATA:
-            ESP_LOGI(TAG, "HTTP_EVENT_ON_DAT, len=%d", evt->data_len);
+            ESP_LOGE(TAG, "HTTP_EVENT_ON_DAT, len=%d", evt->data_len);
             
             if (!esp_http_client_is_chunked_response(evt->client))
             {
@@ -1068,10 +1111,12 @@ esp_err_t www_event_handle(esp_http_client_event_t *evt)
             
             break;
         case HTTP_EVENT_ON_FINISH:
-            ESP_LOGI(TAG, "HTTP_EVENT_ON_FINISH");
+            ESP_LOGE(TAG, "HTTP_EVENT_ON_FINISH");
             break;
         case HTTP_EVENT_DISCONNECTED:
-            webclient_closed();
+            ESP_LOGE(TAG, "HTTP_EVENT_DISCONNECTED");
+            // This is covering up previous errors.
+            // webclient_closed();
             break;
     }
     return ESP_OK;
