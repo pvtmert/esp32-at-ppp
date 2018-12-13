@@ -1,20 +1,19 @@
-#ifndef VT100_h
-#define VT100_h
 //
 //    FILE: VT100.h
 //  AUTHOR: Rob Tillaart
-// VERSION: 0.1.00
+// VERSION: 0.2.00
 // PURPOSE: VT100 codes, to be sent by serial.print() et al.
 //    DATE: 2013-09-30
 //     URL:
 //
-// Released to the public domain
 //
 
 // Good source of VT52 and VT100 codes for reference.
 // https://en.wikipedia.org/wiki/VT52
 // https://en.wikipedia.org/wiki/ANSI_escape_code
 
+#ifndef _VT100_h
+#define _VT100_h
 
 typedef enum
 {
@@ -67,6 +66,7 @@ typedef enum
     PM_START,
     APC_START,
     RIS_CMD         = 'c',
+    SGR_END         = 'm',
     KEY_END         = '~',
     PARAMBYTE_RANGE_START   = 0x30,
     PARAMBYTE_RANGE_END     = 0x3F, /* 0–9:;<=>? */
@@ -88,28 +88,21 @@ typedef enum
     COMPLETED       = IN_ESC<<7,
 } vt_esc_loc;
 
-#define VTBUF_SIZE 3
-#define MAX_VT_CODE 16
-
-struct vt_info
-{
-    vt_type         our_type;
-    vt52_esc_code   last_esc;
-    vt_esc_loc      esc_stat;
-    char            key_buf[VTBUF_SIZE];
-    char            esc_buf[MAX_VT_CODE];
-    unsigned char   inited;
-};
 
 // ANSI COLORS
 typedef enum
 {
-    ATTR_OFF,
+    ATTR_RESET,
     ATTR_BOLD,
-    ATTR_UNDER,
+    ATTR_FAINT,
+    ATTR_ITALIC,
+    ATTR_UNDERLINE,
     ATTR_BLINK,
+    ATTR_F_BLINK,
     ATTR_REVERSE,
     ATTR_INVISIBLE,
+    ATTR_CROSSOUT,
+    ATTR_OFF = 20,
 } ansi_textattrib;
 
 typedef enum
@@ -125,41 +118,77 @@ typedef enum
     FRGND = 30,
     BKGND = 40,
     BRIGHT = 60,
-} ansi_colors;
+} ansi_color;
+
+#define VTBUF_SIZE 3
+#define MAX_VT_CODE 16
+
+struct vt_info
+{
+    unsigned char   inited;
+    vt_type         type;
+    vt_esc_loc      esc_stat;
+    unsigned char   cursx, cursy;
+    ansi_color      bg_color, txt_color;
+    ansi_textattrib txt_attrib;
+    char            key_buf[VTBUF_SIZE];
+    char            esc_buf[MAX_VT_CODE];
+};
 
 #define ANSI_START_SEQ "NOPX[/]^_"
 
 /* convert to 1 based location with printable characters */
 #define VT52_LOC(l) (l+33)
 
-/* Temporary string with <ESC> and the command. */
+/* Temporary VT52 string with <ESC> and the command. */
 #define VT52_CMD_STR(c) (char[3]) {(char)ESC_KEY, (char)c, '\0'}
 
-/* Temporary string with <ESC>, [, and the command. */
-#define VT100_CMD_STR(c) (char[4]) {(char)CSI_START, (char)c, '\0'}
-
-/* Temporary string for moving VT55 cursor. */
+/* Temporary VT52 string for moving VT55 cursor. */
 #define VT52_GXY_STR(x, y) (char[5]) {\
 (char)ESC_KEY, \
 (char)CURS_SET_CMD, \
-(y+33), (x+33), \
+y + 33, x + 33, \
 '\0'}
 
-/* User declared string for moving VT100 cursor. */
-#define VT100_GXY_STR(x, y, buff) \
-    snprintf( buff , MAX_VT_CODE , "%c%c%d;%d%c", \
-    ESC_KEY, CSI_START, (y+1), (x+1), CURS_HOME_KEY);
+#define VT100_CMD_STR(c) VT52_CMD_STR( c )
 
+/* Temporary string with <ESC>, [, and the command. */
+#define VT100_CSI_STR(c) \
+(char[4]) {(char)ESC_KEY, (char)CSI_START, (char)c, '\0'}
+
+/* User declared string for various 1 value VT100 functions. */
+#define GET_VT100_CSI1_CMD(c, value, buff) \
+snprintf( buff , MAX_VT_CODE , \
+"%c%c%u%c", \
+(char)ESC_KEY, (char)CSI_START, \
+value , \
+c )
+
+/* User declared string for various 2 value VT100 functions. */
+#define GET_VT100_CSI2_CMD(c, value1, value2, buff) \
+snprintf( buff , MAX_VT_CODE , \
+"%c%c%u;%u%c", \
+(char)ESC_KEY, (char)CSI_START, \
+value1 , value2 , \
+c )
+
+/* User declared string for moving VT100 cursor. */
+#define GET_VT100_GXY_CMD(x, y, buff) \
+GET_VT100_CSI2_CMD( CURS_HOME_KEY , y + 1, x + 1, buff )
 
 #define ASCII_ESC       "\033"
 
-//VT52
+/* Standard default terminal size */
+#define VT_SCREEN_HEIGHT   24
+#define VT_SCREEN_WIDTH    80
+
+//Identify Requests
 #define VT52_ID_REQ     "\033Z"
 #define VT100_ID_REQ    "\033[c"
 
-
+/*
 // CHAR MODES
-#define OFF             "\033[0m"
+//#define OFF             "\033[0m"
 #define BOLD            "\033[1m"
 #define LOWINTENS       "\033[2m"
 #define UNDERLINE       "\033[4m"
@@ -179,7 +208,7 @@ typedef enum
 // Esc[ValueC 	Move cursor right n lines 	CUF
 // Esc[ValueD 	Move cursor left n lines 	CUB
 
-
+*/
 
 
 // ADDITIONAL CODES depend on terminal if supported.

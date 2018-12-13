@@ -5,7 +5,6 @@
 #EXTRA_COMPONENT_DIRS := $(ESP_AT_PROJECT_PATH)/tools/mkfatfs
 
 COMPONENT_SRCDIRS += contiki/core/ctk \
-    contiki/core/ctk/libconio \
     contiki/core/sys \
     contiki/apps/webbrowser
 

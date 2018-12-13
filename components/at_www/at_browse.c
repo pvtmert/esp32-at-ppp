@@ -47,7 +47,6 @@ AT+WEB="https://raw.githubusercontent.com/cbracco/html5-test-page/master/index.h
 
 #include "at_browse.h"
 
-
 #include "htmlparser.h"
 #include "http-strings.h"
 #include "www.h"
@@ -62,7 +61,7 @@ void more(unsigned int read);
 static const char *TAG = "webbrowser";
 
 static esp_at_cmd_struct at_web_cmd[] = {
-    {"+WEB", at_testCmdBrowse, NULL, at_setupCmdBrowse, at_exeCmdBrowse},
+    {"+WEB", NULL, NULL, NULL, at_exeCmdBrowse},
     {"+GET", at_testCmdBrowse, NULL, at_setupCmdGet, at_exeCmdBrowse},
 };
 
@@ -94,18 +93,21 @@ uint8_t at_setupCmdGet(uint8_t para_num)
     return at_setupCmdHttp(para_num);
 }
 
-
-uint8_t at_setupCmdBrowse(uint8_t para_num)
+uint8_t at_exeCmdBrowse(uint8_t *cmd_name)
 {
     /* Start the contiki process and webbrowser */
-//    autostart_start(autostart_processes);
-
     process_start( &ctk_process, NULL);
     process_start( &www_process, NULL);
+    /* pass a url from AT?
+     process_post(&www_process,
+                ctk_signal_hyperlink_activate,
+                CTK_HYPERLINK_NEW());*/
+    
     while (process_is_running(&www_process))
     {
         process_run();
     }
+    ESP_LOGI(TAG, "Exit contiki");
     process_exit(&www_process);
     process_exit(&ctk_process);
     
@@ -225,11 +227,6 @@ char wait_for_input(char a)
     return (char)data;
 }
 
-
-uint8_t at_exeCmdBrowse(uint8_t *cmd_name)
-{
-    return ESP_AT_RESULT_CODE_OK;
-}
 
 #else
 #warning CONFIG_AT_BROWSE_SUPPORT is disabled!

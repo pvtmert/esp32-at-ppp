@@ -52,11 +52,9 @@
 
 #define ctk_arch_isprint(c)  isprint((unsigned char)c)
 
-#define KEEP_LOOPING 0
 
 #define CTK_CONF_MOUSE_SUPPORT  0
 #define CTK_CONF_MENUS          0
-
 
 #define CH_DEL          0x7F
 #define CH_ENTER        0x0D
@@ -75,31 +73,31 @@
 #define MOUSE_CONF_YTOC(y) ((y) / 8)
 
 #define BORDERCOLOR       COLOR_BLACK
-#define SCREENCOLOR       COLOR_BLACK
-#define BACKGROUNDCOLOR   COLOR_BLACK
-#define WINDOWCOLOR       COLOR_WHITE
-#define WINDOWCOLOR_FOCUS COLOR_WHITE
-#define WIDGETCOLOR       COLOR_WHITE
-#define WIDGETCOLOR_FOCUS COLOR_YELLOW
-#define WIDGETCOLOR_FWIN  COLOR_WHITE
-#define WIDGETCOLOR_HLINK COLOR_CYAN
+#define SCREENCOLOR       COLOR_WHITE   // background color of most of screen
+//#define BACKGROUNDCOLOR      // Not used?
+#define WINDOWCOLOR       COLOR_BLACK   // text in unfocused window
+#define WINDOWCOLOR_FOCUS COLOR_BLACK   // text in focused window
+#define WIDGETCOLOR       COLOR_MAGENTA // text of unfocused widget */
+#define WIDGETCOLOR_FOCUS COLOR_BLUE    // text of focused widget (reversed) */
+#define WIDGETCOLOR_FWIN  COLOR_BLACK   // text in focused window
+#define WIDGETCOLOR_HLINK COLOR_CYAN    // text in url
 
-#define EMAIL_CONF_WIDTH  79
-#define EMAIL_CONF_HEIGHT 20
+#define EMAIL_CONF_WIDTH  ( VT_SCREEN_WIDTH - 1 )
+#define EMAIL_CONF_HEIGHT ( VT_SCREEN_HEIGHT - 4)
 #define EMAIL_CONF_ERASE   0
 
-#define FTP_CONF_WIDTH  38
-#define FTP_CONF_HEIGHT 22
+#define FTP_CONF_WIDTH  (( VT_SCREEN_WIDTH / 2)- 2)
+#define FTP_CONF_HEIGHT ( VT_SCREEN_HEIGHT - 2)
 
-#define IRC_CONF_WIDTH  80
-#define IRC_CONF_HEIGHT 24
+#define IRC_CONF_WIDTH  VT_SCREEN_WIDTH
+#define IRC_CONF_HEIGHT VT_SCREEN_HEIGHT
 
 //#define WWW_CONF_HOMEPAGE
-#define WWW_CONF_WEBPAGE_WIDTH      80
-#define WWW_CONF_WEBPAGE_HEIGHT     19
+#define WWW_CONF_WEBPAGE_WIDTH      VT_SCREEN_WIDTH
+#define WWW_CONF_WEBPAGE_HEIGHT     ( VT_SCREEN_HEIGHT - 5)
 #define WWW_CONF_HISTORY_SIZE       6
-#define WWW_CONF_MAX_URLLEN         78
-#define WWW_CONF_MAX_NUMPAGEWIDGETS 20
-#define WWW_CONF_FORMS               1
+#define WWW_CONF_MAX_URLLEN         ( VT_SCREEN_WIDTH - 2)
+#define WWW_CONF_MAX_NUMPAGEWIDGETS ( VT_SCREEN_WIDTH / 2)
+#define WWW_CONF_FORMS              1
 
 #endif /* __CONTIKI_CONF_H__ */

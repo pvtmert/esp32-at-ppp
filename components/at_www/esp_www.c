@@ -325,11 +325,12 @@ end_page(char *status, void *focus)
 int
 webclient_err(int error)
 {
+    if  (error == ESP_OK); return 0;
+    
     printf("Received error: %d\r\n", error);
+    
     switch(error)
     {
-        case ESP_OK:
-            return 0;
         case ESP_ERR_HTTP_MAX_REDIRECT:
             show_statustext(strerror(EMLINK));
             break;
@@ -388,7 +389,7 @@ open_url(void)
     }
     
     /* See if the URL starts with http://, otherwise prepend it. */
-    if(strncmp(url, http_http, 7) != 0) {
+    if(strncmp(url, http_http, 7) != 0 && strncmp(url, http_https, 8) != 0  ) {
         while(urlptr >= url) {
             *(urlptr + 7) = *urlptr;
             --urlptr;
