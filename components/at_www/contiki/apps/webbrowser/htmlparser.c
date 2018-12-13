@@ -217,7 +217,10 @@ static const char *tags[] = {
   html_style,
 #define TAG_TR         22
   html_tr,
-#define TAG_LAST       23
+/*----------------------------------------------------------------------------*/
+#define TAG_PRE        23
+  html_pre,
+#define TAG_LAST       24
   last,
 };
 
@@ -525,18 +528,26 @@ parse_tag(void)
 static uint16_t
 parse_word(char *data, uint8_t dlen)
 {
-  static uint8_t i;
   static uint8_t len;
   unsigned char c;
+  char *pc, *end;
 
-  len = dlen;
+  end = data+dlen;
 
   switch(s.minorstate) {
   case MINORSTATE_TEXT:
-    for(i = 0; i < len; ++i) {
-      c = data[i];
+    for(pc = data, c = *pc; pc < end; pc++, c = *pc) {
       if(iswhitespace(c)) {
-	do_word();
+        if (strncmp(s.tag, html_pre, 3)==0) {
+          if (c == ISO_nl) {
+            do_word();
+            htmlparser_newline();
+          } else {
+            add_char(c);
+          }
+        } else {
+          do_word();
+        }
       } else if(c == ISO_lt) {
 	s.minorstate = MINORSTATE_TAG;
 	s.tagptr = 0;
@@ -550,8 +561,7 @@ parse_word(char *data, uint8_t dlen)
     }
     break;
   case MINORSTATE_EXTCHAR:
-    for(i = 0; i < len; ++i) {
-      c = data[i];
+    for(pc = data, c = *pc; pc < end; pc++, c = *pc) {
       if(c == ISO_semicolon) {
 	s.minorstate = MINORSTATE_TEXT;
 	add_char(' ');
@@ -578,8 +588,7 @@ parse_word(char *data, uint8_t dlen)
        for the end of a tag (the '>' character) or whitespace (which
        indicates that we should parse a tag attr argument
        instead). */
-    for(i = 0; i < len; ++i) {
-      c = data[i];
+    for(pc = data, c = *pc; pc < end; pc++, c = *pc) {
       if(c == ISO_gt) {
 	/* Full tag found. We continue parsing regular text. */
 	s.minorstate = MINORSTATE_TEXT;
@@ -623,8 +632,7 @@ parse_word(char *data, uint8_t dlen)
   case MINORSTATE_TAGATTR:
     /* We parse the "tag attr", i.e., the "href" in <a
        href="...">. */
-    for(i = 0; i < len; ++i) {
-      c = data[i];
+    for(pc = data, c = *pc; pc < end; pc++, c = *pc) {
       if(c == ISO_gt) {
 	/* Full tag found. */
 	s.minorstate = MINORSTATE_TEXT;
@@ -664,8 +672,7 @@ parse_word(char *data, uint8_t dlen)
     }
     break;
   case MINORSTATE_TAGATTRSPACE:
-    for(i = 0; i < len; ++i) {
-      c = data[i];
+    for(pc = data, c = *pc; pc < end; pc++, c = *pc) {
       if(iswhitespace(c)) {
 	/* Discard spaces. */
       } else if(c == ISO_eq) {
@@ -685,8 +692,7 @@ parse_word(char *data, uint8_t dlen)
   case MINORSTATE_TAGATTRPARAMNQ:
     /* We are parsing the "tag attr parameter", i.e., the link part
        in <a href="link">. */
-    for(i = 0; i < len; ++i) {
-      c = data[i];
+    for(pc = data, c = *pc; pc < end; pc++, c = *pc) {
       if(c == ISO_gt) {
 	/* Full tag found. */
 	endtagfound();
@@ -731,8 +737,7 @@ parse_word(char *data, uint8_t dlen)
   case MINORSTATE_TAGATTRPARAM:
     /* We are parsing the "tag attr parameter", i.e., the link
        part in <a href="link">. */
-    for(i = 0; i < len; ++i) {
-      c = data[i];
+    for(pc = data, c = *pc; pc < end; pc++, c = *pc) {
       if(c == s.quotechar) {
 	/* Found end of tag attr parameter. */
 	endtagfound();
@@ -760,8 +765,7 @@ parse_word(char *data, uint8_t dlen)
     }
     break;
   case MINORSTATE_HTMLCOMMENT:
-    for(i = 0; i < len; ++i) {
-      c = data[i];
+    for(pc = data, c = *pc; pc < end; pc++, c = *pc) {
       if(c == ISO_dash) {
 	++s.tagptr;
       } else if(c == ISO_gt && s.tagptr > 0) {
@@ -775,8 +779,8 @@ parse_word(char *data, uint8_t dlen)
     break;
   case MINORSTATE_TAGEND:
     /* Discard characters until a '>' is seen. */
-    for(i = 0; i < len; ++i) {
-      if(data[i] == ISO_gt) {
+    for(pc = data, c = *pc; pc < end; pc++, c = *pc) {
+      if(c == ISO_gt) {
 	s.minorstate = MINORSTATE_TEXT;
 	s.tagattrptr = 0;
 	endtagfound();
@@ -786,13 +790,13 @@ parse_word(char *data, uint8_t dlen)
     }
     break;
   default:
-    i = 0;
+    pc = data;
     break;
   }
-  if(i >= len) {
-    return len;
+  if(pc >= end) {
+    return dlen;
   }
-  return i + 1;
+  return (unsigned int)(pc-data + 1);
 }
 /*-----------------------------------------------------------------------------------*/
 void

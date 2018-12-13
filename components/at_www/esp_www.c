@@ -139,6 +139,8 @@ static char history[WWW_CONF_HISTORY_SIZE][WWW_CONF_MAX_URLLEN];
 static unsigned char history_last;
 #endif /* WWW_CONF_HISTORY_SIZE > 0 */
 
+static esp_http_client_handle_t www_client;
+
 struct linkattrib {
     struct ctk_hyperlink hyperlink;
     char url[1];
@@ -325,7 +327,7 @@ end_page(char *status, void *focus)
 int
 webclient_err(int error)
 {
-    if  (error == ESP_OK); return 0;
+    if  (error == ESP_OK) return 0;
     
     printf("Received error: %d\r\n", error);
     
@@ -428,12 +430,11 @@ open_url(void)
     /* Try to lookup the hostname. If it fails, we initiate a hostname
      lookup and print out an informative message on the statusbar. */
     
-    
     /* The hostname we present in the hostname table, so we send out the
      initial GET request. */
     www_config.url = url;
     www_config.event_handler = www_event_handle;
-    esp_http_client_handle_t www_client = esp_http_client_init(&www_config);
+    www_client = esp_http_client_init(&www_config);
     if (www_client == NULL) {
         show_statustext("Out of memory error");
     } else {
@@ -676,7 +677,7 @@ PROCESS_THREAD(www_process, ev, data)
  * text entry widget in the browser window).
  */
 static void
-set_url(char *host, uint16_t port, char *file)
+set_url(const char *host, uint16_t port, const char *file)
 {
     char *urlptr;
     
@@ -738,9 +739,10 @@ void
 webclient_connected(void)
 {
     start_loading();
-    
+
     show_statustext("Request sent...");
-    set_url(www_config.host, www_config.port, www_config.path);
+    // Crashing here FIXME!!!
+    //set_url(www_config.host, www_config.port, www_config.path);
     
     htmlparser_init();
 }
@@ -933,6 +935,8 @@ htmlparser_newline(void)
     
     if(y == WWW_CONF_WEBPAGE_HEIGHT) {
         loading = 0;
+        ESP_LOGE(TAG, "reached WWW_CONF_WEBPAGE_HEIGHT");
+        esp_http_client_close(www_client);
         //webclient_close(); /*FIXME*/
     }
 }
@@ -1024,7 +1028,7 @@ add_query(char delimiter, char *string)
 #ifdef WITH_PETSCII
         petsciiconv_toascii(query, length);
 #endif
-        while((space = strchr(space, ISO_space)) != NULL) {
+        while((space = strchr(space,    C   `ISO_space)) != NULL) {
             *space = ISO_plus;
         }
     }
@@ -1099,20 +1103,21 @@ esp_err_t www_event_handle(esp_http_client_event_t *evt)
             if (strcmp("Content-Type", evt->header_key))
             {
                 strncpy(webclient_mimetype, evt->header_value, 64);
+                printf("%.*s", evt->data_len, (char*)evt->data);
             }
-            //printf("%.*s", evt->data_len, (char*)evt->data);
             break;
         case HTTP_EVENT_ON_DATA:
-            ESP_LOGE(TAG, "HTTP_EVENT_ON_DAT, len=%d", evt->data_len);
+            ESP_LOGE(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
             
             if (!esp_http_client_is_chunked_response(evt->client))
             {
             }
             webclient_datahandler(evt->data, evt->data_len);
-            
+
             break;
         case HTTP_EVENT_ON_FINISH:
             ESP_LOGE(TAG, "HTTP_EVENT_ON_FINISH");
+            webclient_datahandler(NULL, 0);
             break;
         case HTTP_EVENT_DISCONNECTED:
             ESP_LOGE(TAG, "HTTP_EVENT_DISCONNECTED");

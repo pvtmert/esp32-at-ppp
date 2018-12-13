@@ -177,8 +177,8 @@ esp_err_t browse_event_handle(esp_http_client_event_t *evt)
 
         if (!esp_http_client_is_chunked_response(evt->client))
         {
-            //printf("%.*s", evt->data_len, (char*)evt->data);
-            if (parse)
+            printf("%.*s", evt->data_len, (char*)evt->data);
+            /*if (parse)
             {
                 htmlparser_parse(evt->data, evt->data_len);
                 more(evt->data_len);
@@ -186,7 +186,7 @@ esp_err_t browse_event_handle(esp_http_client_event_t *evt)
             else
             {
                 esp_at_port_write_data((unsigned char*)evt->data, evt->data_len);
-            }
+            }*/
         }
         break;
         case HTTP_EVENT_ON_FINISH:
