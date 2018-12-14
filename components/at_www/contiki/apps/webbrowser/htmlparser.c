@@ -536,7 +536,7 @@ parse_word(char *data, uint8_t dlen)
 
   switch(s.minorstate) {
   case MINORSTATE_TEXT:
-    for(pc = data, c = *pc; pc < end; pc++, c = *pc) {
+    for(pc = data, c = *pc; pc < end; c = *(++pc)) {
       if(iswhitespace(c)) {
         if (strncmp(s.tag, html_pre, 3)==0) {
           if (c == ISO_nl) {
@@ -561,7 +561,7 @@ parse_word(char *data, uint8_t dlen)
     }
     break;
   case MINORSTATE_EXTCHAR:
-    for(pc = data, c = *pc; pc < end; pc++, c = *pc) {
+    for(pc = data, c = *pc; pc < end; c = *(++pc)) {
       if(c == ISO_semicolon) {
 	s.minorstate = MINORSTATE_TEXT;
 	add_char(' ');
@@ -588,7 +588,7 @@ parse_word(char *data, uint8_t dlen)
        for the end of a tag (the '>' character) or whitespace (which
        indicates that we should parse a tag attr argument
        instead). */
-    for(pc = data, c = *pc; pc < end; pc++, c = *pc) {
+    for(pc = data, c = *pc; pc < end; c = *(++pc)) {
       if(c == ISO_gt) {
 	/* Full tag found. We continue parsing regular text. */
 	s.minorstate = MINORSTATE_TEXT;
@@ -615,7 +615,6 @@ parse_word(char *data, uint8_t dlen)
 	  break;
 	}
       }
-
       /* Check for HTML comment, indicated by <!-- */
       if(s.tagptr == 3 &&
 	 s.tag[0] == ISO_bang &&
@@ -632,7 +631,7 @@ parse_word(char *data, uint8_t dlen)
   case MINORSTATE_TAGATTR:
     /* We parse the "tag attr", i.e., the "href" in <a
        href="...">. */
-    for(pc = data, c = *pc; pc < end; pc++, c = *pc) {
+    for(pc = data, c = *pc; pc < end; c = *(++pc)) {
       if(c == ISO_gt) {
 	/* Full tag found. */
 	s.minorstate = MINORSTATE_TEXT;
@@ -672,7 +671,7 @@ parse_word(char *data, uint8_t dlen)
     }
     break;
   case MINORSTATE_TAGATTRSPACE:
-    for(pc = data, c = *pc; pc < end; pc++, c = *pc) {
+    for(pc = data, c = *pc; pc < end; c = *(++pc)) {
       if(iswhitespace(c)) {
 	/* Discard spaces. */
       } else if(c == ISO_eq) {
@@ -692,7 +691,7 @@ parse_word(char *data, uint8_t dlen)
   case MINORSTATE_TAGATTRPARAMNQ:
     /* We are parsing the "tag attr parameter", i.e., the link part
        in <a href="link">. */
-    for(pc = data, c = *pc; pc < end; pc++, c = *pc) {
+    for(pc = data, c = *pc; pc < end; c = *(++pc)) {
       if(c == ISO_gt) {
 	/* Full tag found. */
 	endtagfound();
@@ -737,7 +736,7 @@ parse_word(char *data, uint8_t dlen)
   case MINORSTATE_TAGATTRPARAM:
     /* We are parsing the "tag attr parameter", i.e., the link
        part in <a href="link">. */
-    for(pc = data, c = *pc; pc < end; pc++, c = *pc) {
+    for(pc = data, c = *pc; pc < end; c = *(++pc)) {
       if(c == s.quotechar) {
 	/* Found end of tag attr parameter. */
 	endtagfound();
@@ -765,7 +764,7 @@ parse_word(char *data, uint8_t dlen)
     }
     break;
   case MINORSTATE_HTMLCOMMENT:
-    for(pc = data, c = *pc; pc < end; pc++, c = *pc) {
+    for(pc = data, c = *pc; pc < end; c = *(++pc)) {
       if(c == ISO_dash) {
 	++s.tagptr;
       } else if(c == ISO_gt && s.tagptr > 0) {
@@ -779,7 +778,7 @@ parse_word(char *data, uint8_t dlen)
     break;
   case MINORSTATE_TAGEND:
     /* Discard characters until a '>' is seen. */
-    for(pc = data, c = *pc; pc < end; pc++, c = *pc) {
+    for(pc = data, c = *pc; pc < end; c = *(++pc)) {
       if(c == ISO_gt) {
 	s.minorstate = MINORSTATE_TEXT;
 	s.tagattrptr = 0;

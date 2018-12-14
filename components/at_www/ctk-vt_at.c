@@ -302,8 +302,15 @@ textcolor(unsigned char c)
     if ( vt_at_info.type == VT100 && tmp != vt_at_info.txt_color )
     {
         vt_at_info.txt_color = tmp;
+
+#ifdef WIDGETCOLOR_HLINK
+        // Underline hyperlinks.
+        if (c == WIDGETCOLOR_HLINK)
+            GET_VT100_CSI2_CMD( SGR_END, ATTR_UNDERLINE, tmp, vt_at_info.esc_buf);
+        else
+#endif
+            GET_VT100_CSI2_CMD( SGR_END, ATTR_UNDERLINE+ATTR_OFF, tmp, vt_at_info.esc_buf);
         
-        GET_VT100_CSI1_CMD( SGR_END, tmp, vt_at_info.esc_buf);
         at_write_str(vt_at_info.esc_buf);
     }
 }
@@ -313,8 +320,9 @@ bgcolor(unsigned char c)
 {
     /* Presume this to be one of the first calls. */
     vt_at_init();
+    
     int tmp = c + BKGND;
-    if ( vt_at_info.type == VT100 && tmp != vt_at_info.bg_color )
+    if ( vt_at_info.type == VT100 )
     {
         /* reset all graphics */
         GET_VT100_CSI1_CMD( SGR_END, 0, vt_at_info.esc_buf);
@@ -334,10 +342,7 @@ bordercolor(unsigned char c)
     /* Presume this to be one of the first calls. */
     vt_at_init();
 
-
-
-    /* FIXME ??*/
-
+    /* Not sure what to do here. FIXME ??*/
 }
 /*----------------------------------------------------------------------------*/
 void

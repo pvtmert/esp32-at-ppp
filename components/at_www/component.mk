@@ -1,5 +1,5 @@
 #
-# Component Makefile
+# Esp32 at_www Component Makefile
 #
 
 #EXTRA_COMPONENT_DIRS := $(ESP_AT_PROJECT_PATH)/tools/mkfatfs

@@ -32,18 +32,9 @@ bool esp_at_web_cmd_regist(void);
 uint8_t at_testCmdBrowse(uint8_t *cmd_name);
 
 uint8_t at_setupCmdBrowse(uint8_t para_num);
+uint8_t at_exeCmdBrowse(uint8_t *cmd_name);
 
 uint8_t at_setupCmdGet(uint8_t para_num);
 
-uint8_t at_setupCmdHttp(uint8_t para_num);
-
-uint8_t at_exeCmdBrowse(uint8_t *cmd_name);
-
-
-char wait_for_input(char a);
-
-void more(unsigned int read);
-
-//void browser_send(char *buff, unsigned char len);
 
 #endif //__AT_BROWSE_H__

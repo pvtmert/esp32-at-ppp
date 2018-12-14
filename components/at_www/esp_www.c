@@ -1,5 +1,6 @@
 /*
-  * Copyright (c) 2002, Adam Dunkels.
+  * Based on Contik's www.c Copyright (c) 2002, Adam Dunkels.
+  * Mdifications for esp32  Copyright (c) 2018, Eric Pooch. 
   * All rights reserved.
   *
   * Redistribution and use in source and binary forms, with or without
@@ -35,6 +36,7 @@
 #include <string.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #include <errno.h>
 
@@ -51,6 +53,7 @@
 #endif /* WWW_CONF_WITH_WGET */
 
 //#include "webclient.h"
+#include "http_parser.h"
 #include "esp_http_client.h"
 #include "esp_log.h"
 
@@ -71,10 +74,7 @@ static char url[WWW_CONF_MAX_URLLEN + 1];
 static char webpage[WWW_CONF_WEBPAGE_WIDTH *
                     WWW_CONF_WEBPAGE_HEIGHT + 1];
 
-static esp_http_client_config_t www_config;
 static char webclient_mimetype[64];
-
-esp_err_t www_event_handle(esp_http_client_event_t *evt);
 
 /* The CTK widgets for the main window. */
 static struct ctk_window mainwindow;
@@ -139,7 +139,8 @@ static char history[WWW_CONF_HISTORY_SIZE][WWW_CONF_MAX_URLLEN];
 static unsigned char history_last;
 #endif /* WWW_CONF_HISTORY_SIZE > 0 */
 
-static esp_http_client_handle_t www_client;
+static esp_http_client_handle_t www_client = NULL;
+esp_err_t www_event_handle(esp_http_client_event_t *evt);
 
 struct linkattrib {
     struct ctk_hyperlink hyperlink;
@@ -281,7 +282,7 @@ static void
 show_url(void)
 {
     memcpy(editurl, url, WWW_CONF_MAX_URLLEN);
-    strncpy(editurl, "http://", 7);
+    //strncpy(editurl, "http://", 7);
 #ifdef WITH_PETSCII
     petsciiconv_topetscii(editurl + 7, WWW_CONF_MAX_URLLEN - 7);
 #endif
@@ -333,6 +334,9 @@ webclient_err(int error)
     
     switch(error)
     {
+        case (1):
+            show_statustext(strerror(EINVAL)); // Bad URL = "Invalid argument"
+            break;
         case ESP_ERR_HTTP_MAX_REDIRECT:
             show_statustext(strerror(EMLINK));
             break;
@@ -370,79 +374,73 @@ webclient_err(int error)
 static void
 open_url(void)
 {
-    unsigned char i;
-    static char host[32];
-    char *file;
-    register char *urlptr;
-    
-    /* Trim off any spaces in the end of the url. */
-    urlptr = url + strlen(url);
-    while(urlptr > url) {
-        if(*(urlptr - 1) == ' ') {
-            *--urlptr = 0;
-        } else {
-            break;
+    char *rd_ptr, *wt_ptr, *end_ptr;
+    static esp_http_client_config_t www_config;
+
+    end_ptr = url + strlen(url);
+    /* Get rid  of any whitespaces in the url. */
+    for(rd_ptr = wt_ptr = url; rd_ptr < end_ptr; ++rd_ptr) {
+        if(!isspace((int)*rd_ptr)) {
+            *wt_ptr++ = *rd_ptr;
         }
     }
+    *wt_ptr = '\0'; // End the url string.
     
     /* Don't even try to go further if the URL is empty. */
-    if(urlptr == url) {
+    if(wt_ptr == url) {
         return;
     }
     
     /* See if the URL starts with http://, otherwise prepend it. */
     if(strncmp(url, http_http, 7) != 0 && strncmp(url, http_https, 8) != 0  ) {
-        while(urlptr >= url) {
-            *(urlptr + 7) = *urlptr;
-            --urlptr;
+        while(wt_ptr >= url) {
+            *(wt_ptr + 7) = *wt_ptr;
+            --wt_ptr;
         }
         strncpy(url, http_http, 7);
     }
-    
-    /* Find host part of the URL. */
-    urlptr = &url[7];
-    for(i = 0; i < sizeof(host); ++i) {
-        if(*urlptr == 0 ||
-           *urlptr == '/' ||
-           *urlptr == ' ' ||
-           *urlptr == ':') {
-            host[i] = 0;
-            break;
-        }
-        host[i] = *urlptr;
-        ++urlptr;
+
+    /* Sometimes esp_http_client crashes on cleanup after a bad url.
+     * Check url first before sending to esp_http_client_init. */
+    struct http_parser_url purl;
+    http_parser_url_init(&purl);
+    if (webclient_err(http_parser_parse_url(url, strlen(url), 0, &purl)))
+        return;
+
+    if (www_client)
+    {
+        ESP_LOGE(TAG, "Initing client with url: %s", url);
+
+        // Reuse the client.
+        esp_http_client_set_url(www_client, url);
+        www_config.url = url;
+    }
+    else
+    {
+        ESP_LOGE(TAG, "Reusing client with url: %s", url);
+
+        // Initialize the client.
+        www_config.url = url;
+        www_config.event_handler = www_event_handle;
+        www_client = esp_http_client_init(&www_config);
     }
     
-    /* XXX: Here we should find the port part of the URL, but this isn't
-     currently done because of laziness from the programmer's side
-     :-) */
-    
-    /* Find file part of the URL. */
-    while(*urlptr != '/' && *urlptr != 0) {
-        ++urlptr;
-    }
-    if(*urlptr == '/') {
-        file = urlptr;
-    } else {
-        file = "/";
-    }
-    
-    /* Try to lookup the hostname. If it fails, we initiate a hostname
-     lookup and print out an informative message on the statusbar. */
-    
-    /* The hostname we present in the hostname table, so we send out the
-     initial GET request. */
-    www_config.url = url;
-    www_config.event_handler = www_event_handle;
-    www_client = esp_http_client_init(&www_config);
     if (www_client == NULL) {
         show_statustext("Out of memory error");
-    } else {
-        int err;
-        show_statustext("Connecting...");
-        webclient_err(esp_http_client_perform(www_client));
-        esp_http_client_cleanup(www_client);
+        return;
     }
+#ifdef WWW_CONF_USER_AGENT
+    webclient_err(esp_http_client_set_header(www_client, "User-Agent", WWW_CONF_USER_AGENT));
+    webclient_err(esp_http_client_set_header(www_client, "Connection", "Close"));
+
+#endif
+    show_statustext("Connecting...");
+    webclient_err(esp_http_client_perform(www_client));
+    
+    ESP_LOGE(TAG, "doing own esp_http_client_cleanup");
+    esp_http_client_cleanup(www_client);
+    ESP_LOGE(TAG, "done own esp_http_client_cleanup");
+    www_client = NULL;
 }
 /*-----------------------------------------------------------------------------------*/
 /* set_link(link):
@@ -556,7 +554,8 @@ PROCESS_THREAD(www_process, ev, data)
     while(1) {
         
         PROCESS_WAIT_EVENT();
-        
+        ESP_LOGD(TAG, "PROCESS_THREAD event: %d", (int)ev);
+
         /*if(ev == tcpip_event) {
          webclient_appcall(data);
          } else */if(ev == ctk_signal_widget_activate) {
@@ -594,7 +593,8 @@ PROCESS_THREAD(www_process, ev, data)
                  CTK_WIDGET_FOCUS(&mainwindow, &downbutton);
              } else if(w == (struct ctk_widget *)&stopbutton) {
                  loading = 0;
-                 //webclient_close(); /*FIXME - May have to do something here with esp*/
+                 if (www_client)
+                     esp_http_client_close(www_client);
 #if WWW_CONF_WITH_WGET || defined(WWW_CONF_WGET_EXEC)
              } else if(w == (struct ctk_widget *)&wgetnobutton) {
 #if CTK_CONF_WINDOWS
@@ -652,16 +652,6 @@ PROCESS_THREAD(www_process, ev, data)
 #endif
                  show_statustext(statustexturl);
              }
-#if UIP_UDP
-         } else if(ev == resolv_event_found) {
-             /* Either found a hostname, or not. */
-             if((char *)data != NULL &&
-                resolv_lookup((char *)data, NULL) == RESOLV_STATUS_CACHED) {
-                 open_url();
-             } else {
-                 show_statustext("Host not found");
-             }
-#endif /* UIP_UDP */
          } else if(ev == ctk_signal_window_close ||
                    ev == PROCESS_EVENT_EXIT) {
              quit();
@@ -679,6 +669,11 @@ PROCESS_THREAD(www_process, ev, data)
 static void
 set_url(const char *host, uint16_t port, const char *file)
 {
+
+    show_url();
+    
+    return;
+    /* Something is crashing down there. */
     char *urlptr;
     
     memset(url, 0, WWW_CONF_MAX_URLLEN);
@@ -742,8 +737,10 @@ webclient_connected(void)
 
     show_statustext("Request sent...");
     // Crashing here FIXME!!!
-    //set_url(www_config.host, www_config.port, www_config.path);
-    
+    //set_url(...);
+
+    show_url();
+
     htmlparser_init();
 }
 /*-----------------------------------------------------------------------------------*/
@@ -756,11 +753,12 @@ void
 webclient_datahandler(char *data, uint16_t len)
 {
     if(len > 0) {
-        if(/*strstr(webclient_mimetype, http_html + 1) != 0*/1) {
+        if(strstr(webclient_mimetype, http_html + 1) != NULL) {
             count = (count + 1) & 3;
             show_statustext(receivingmsgs[count]);
             htmlparser_parse(data, len);
-            redraw_window();
+            //too many redraws on slow connection, wait until WWW_CONF_WEBPAGE_HEIGHT.
+            //redraw_window();
         } else {
 #if WWW_CONF_WITH_WGET || defined(WWW_CONF_WGET_EXEC)
 #if CTK_CONF_WINDOWS
@@ -936,8 +934,9 @@ htmlparser_newline(void)
     if(y == WWW_CONF_WEBPAGE_HEIGHT) {
         loading = 0;
         ESP_LOGE(TAG, "reached WWW_CONF_WEBPAGE_HEIGHT");
-        esp_http_client_close(www_client);
-        //webclient_close(); /*FIXME*/
+        if (www_client)
+            esp_http_client_close(www_client);
+        redraw_window();
     }
 }
 /*-----------------------------------------------------------------------------------*/
@@ -1028,7 +1027,7 @@ add_query(char delimiter, char *string)
 #ifdef WITH_PETSCII
         petsciiconv_toascii(query, length);
 #endif
-        while((space = strchr(space,    C   `ISO_space)) != NULL) {
+        while((space = strchr(space, ISO_space)) != NULL) {
             *space = ISO_plus;
         }
     }
@@ -1100,18 +1099,21 @@ esp_err_t www_event_handle(esp_http_client_event_t *evt)
             break;
         case HTTP_EVENT_ON_HEADER:
             ESP_LOGE(TAG, "HTTP_EVENT_ON_HEADER");
-            if (strcmp("Content-Type", evt->header_key))
-            {
+            //printf("%s %.*s", evt->header_key, evt->data_len, (char*)evt->data);
+
+            if (strcmp("Content-Type", evt->header_key) == 0)
                 strncpy(webclient_mimetype, evt->header_value, 64);
-                printf("%.*s", evt->data_len, (char*)evt->data);
-            }
+
+            if (strcmp("Location", evt->header_key) == 0)
+                strncpy(url, evt->header_value, WWW_CONF_MAX_URLLEN);
+            
             break;
+            show_url();
         case HTTP_EVENT_ON_DATA:
             ESP_LOGE(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
             
             if (!esp_http_client_is_chunked_response(evt->client))
-            {
-            }
+            {}
             webclient_datahandler(evt->data, evt->data_len);
 
             break;

@@ -51,18 +51,14 @@ AT+WEB="https://raw.githubusercontent.com/cbracco/html5-test-page/master/index.h
 #include "http-strings.h"
 #include "www.h"
 
- 
-char wait_for_input(char a);
-
-void more(unsigned int read);
 
 #define BROWSE_AT_PARAMS "\"<URI>\""
 
 static const char *TAG = "webbrowser";
 
 static esp_at_cmd_struct at_web_cmd[] = {
-    {"+WEB", NULL, NULL, NULL, at_exeCmdBrowse},
-    {"+GET", at_testCmdBrowse, NULL, at_setupCmdGet, at_exeCmdBrowse},
+    {"+WEB", at_testCmdBrowse, NULL, at_setupCmdBrowse, at_exeCmdBrowse},
+    {"+GET", at_testCmdBrowse, NULL, at_setupCmdGet, NULL},
 };
 
 static esp_http_client_config_t browse_config;
@@ -86,22 +82,21 @@ uint8_t at_testCmdBrowse(uint8_t *cmd_name)
 	return ESP_AT_RESULT_CODE_OK;
 }
 
-
-uint8_t at_setupCmdGet(uint8_t para_num)
+uint8_t at_setupCmdBrowse(uint8_t para_num)
 {
-    parse = false;
-    return at_setupCmdHttp(para_num);
-}
-
-uint8_t at_exeCmdBrowse(uint8_t *cmd_name)
-{
+    int32_t para_idx = 0;
+    char *para_str;
+    
     /* Start the contiki process and webbrowser */
     process_start( &ctk_process, NULL);
     process_start( &www_process, NULL);
-    /* pass a url from AT?
-     process_post(&www_process,
-                ctk_signal_hyperlink_activate,
-                CTK_HYPERLINK_NEW());*/
+    
+    // pass a url from AT to the web browser process
+    if (para_num && esp_at_get_para_as_str(0, (uint8_t**)&para_str) == ESP_AT_PARA_PARSE_RESULT_OK)
+    {
+        struct ctk_hyperlink hlink =  {CTK_HYPERLINK(0, 0, 4, "Home", para_str)};
+        process_post(&www_process, ctk_signal_hyperlink_activate, &hlink);
+    }
     
     while (process_is_running(&www_process))
     {
@@ -114,12 +109,18 @@ uint8_t at_exeCmdBrowse(uint8_t *cmd_name)
     return ESP_AT_RESULT_CODE_OK;
 }
 
+uint8_t at_exeCmdBrowse(uint8_t *cmd_name)
+{
+    return at_setupCmdBrowse(0);
+}
 
-uint8_t at_setupCmdHttp(uint8_t para_num)
+
+uint8_t at_setupCmdGet(uint8_t para_num)
 {
 	int32_t para_idx = 0;
-	
 	char *para_str;
+
+    parse = false;
 
 	if (para_num != 1 ) return ESP_AT_RESULT_CODE_ERROR;
 	
@@ -177,16 +178,16 @@ esp_err_t browse_event_handle(esp_http_client_event_t *evt)
 
         if (!esp_http_client_is_chunked_response(evt->client))
         {
-            printf("%.*s", evt->data_len, (char*)evt->data);
+            //printf("%.*s", evt->data_len, (char*)evt->data);
             /*if (parse)
             {
                 htmlparser_parse(evt->data, evt->data_len);
                 more(evt->data_len);
             }
             else
-            {
+            {*/
                 esp_at_port_write_data((unsigned char*)evt->data, evt->data_len);
-            }*/
+            //}
         }
         break;
         case HTTP_EVENT_ON_FINISH:
@@ -198,35 +199,6 @@ esp_err_t browse_event_handle(esp_http_client_event_t *evt)
     }
     return ESP_OK;
 }
-
-
-void more(unsigned int read)
-{
-    static int count = 0;
-    const char more[] = "\e[1m| Press Space Key for Next Page |\e[m\r";
-    count+=read;
-    
-    if (count%2)
-    {
-        htmlparser_newline();
-        esp_at_port_write_data((unsigned char *)more, strlen(more));
-        wait_for_input(' ');
-    }
-    count++;
-}
-
-
-char wait_for_input(char a)
-{
-    uint8_t data;
-    int len;
-    while  ((char)data != a)
-    {
-        len = uart_read_bytes(CONFIG_AT_UART_PORT, &data, 1, portMAX_DELAY);
-    }
-    return (char)data;
-}
-
 
 #else
 #warning CONFIG_AT_BROWSE_SUPPORT is disabled!

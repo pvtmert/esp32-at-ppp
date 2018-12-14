@@ -1,6 +1,6 @@
 //
 //    FILE: VT100.h
-//  AUTHOR: Rob Tillaart
+//  ORIGINAL AUTHOR: Rob Tillaart
 // VERSION: 0.2.00
 // PURPOSE: VT100 codes, to be sent by serial.print() et al.
 //    DATE: 2013-09-30

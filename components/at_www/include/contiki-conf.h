@@ -73,14 +73,14 @@
 #define MOUSE_CONF_YTOC(y) ((y) / 8)
 
 #define BORDERCOLOR       COLOR_BLACK
-#define SCREENCOLOR       COLOR_WHITE   // background color of most of screen
+#define SCREENCOLOR       COLOR_WHITE       // background color of most of screen
 //#define BACKGROUNDCOLOR      // Not used?
-#define WINDOWCOLOR       COLOR_BLACK   // text in unfocused window
-#define WINDOWCOLOR_FOCUS COLOR_BLACK   // text in focused window
-#define WIDGETCOLOR       COLOR_MAGENTA // text of unfocused widget */
-#define WIDGETCOLOR_FOCUS COLOR_BLUE    // text of focused widget (reversed) */
-#define WIDGETCOLOR_FWIN  COLOR_BLACK   // text in focused window
-#define WIDGETCOLOR_HLINK COLOR_CYAN    // text in url
+#define WINDOWCOLOR       COLOR_BLACK       // text in unfocused window
+#define WINDOWCOLOR_FOCUS COLOR_BLACK       // text in focused window
+#define WIDGETCOLOR       COLOR_MAGENTA     // text of unfocused widget
+#define WIDGETCOLOR_FOCUS COLOR_BLUE        // text of focused widget (reversed)
+#define WIDGETCOLOR_FWIN  COLOR_BLACK       // text in focused window
+#define WIDGETCOLOR_HLINK COLOR_CYAN        // text in url (+UNDERLINE)
 
 #define EMAIL_CONF_WIDTH  ( VT_SCREEN_WIDTH - 1 )
 #define EMAIL_CONF_HEIGHT ( VT_SCREEN_HEIGHT - 4)
@@ -96,8 +96,8 @@
 #define WWW_CONF_WEBPAGE_WIDTH      VT_SCREEN_WIDTH
 #define WWW_CONF_WEBPAGE_HEIGHT     ( VT_SCREEN_HEIGHT - 5)
 #define WWW_CONF_HISTORY_SIZE       6
-#define WWW_CONF_MAX_URLLEN         ( VT_SCREEN_WIDTH - 2)
+#define WWW_CONF_MAX_URLLEN         ( VT_SCREEN_WIDTH * 2)
 #define WWW_CONF_MAX_NUMPAGEWIDGETS ( VT_SCREEN_WIDTH / 2)
 #define WWW_CONF_FORMS              1
-
+#define WWW_CONF_USER_AGENT "Contiki/3.x (LOLIN32; http://www.contiki-os.org/)"
 #endif /* __CONTIKI_CONF_H__ */
