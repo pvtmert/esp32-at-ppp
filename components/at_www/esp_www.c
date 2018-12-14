@@ -936,7 +936,6 @@ htmlparser_newline(void)
         ESP_LOGE(TAG, "reached WWW_CONF_WEBPAGE_HEIGHT");
         if (www_client)
             esp_http_client_close(www_client);
-        redraw_window();
     }
 }
 /*-----------------------------------------------------------------------------------*/

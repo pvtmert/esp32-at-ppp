@@ -199,9 +199,24 @@ void
 cclear(unsigned char length)
 {
     int i;
-    for(i = 0; i < length; ++i) {
-        cputc(' ');
+    if (vt_at_info.cursx+length >= VT_SCREEN_WIDTH)
+    {
+        if (vt_at_info.type == VT100)
+        {
+            at_write_str(VT100_CSI_STR(CLR_END_LINE));
+        }
+        else if (vt_at_info.type <= VT100_EM)
+        {
+            at_write_str(VT52_CMD_STR(CLR_END_LINE));
+        }
     }
+    else
+    {
+        for(i = 0; i < length; ++i) {
+            cputc(' ');
+        }
+    }
+    
 }
 /*----------------------------------------------------------------------------*/
 void
