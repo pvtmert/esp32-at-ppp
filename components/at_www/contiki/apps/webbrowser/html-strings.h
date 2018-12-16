@@ -35,3 +35,4 @@ extern const char html_image[7];
 extern const char html_hidden[8];
 
 extern const char html_pre[5];
+extern const char html_password[10];

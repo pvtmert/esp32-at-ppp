@@ -96,7 +96,7 @@
 #define WWW_CONF_WEBPAGE_WIDTH      VT_SCREEN_WIDTH
 #define WWW_CONF_WEBPAGE_HEIGHT     ( VT_SCREEN_HEIGHT - 5)
 #define WWW_CONF_HISTORY_SIZE       6
-#define WWW_CONF_MAX_URLLEN         ( VT_SCREEN_WIDTH * 2)
+#define WWW_CONF_MAX_URLLEN         255
 #define WWW_CONF_MAX_NUMPAGEWIDGETS ( VT_SCREEN_WIDTH / 2)
 #define WWW_CONF_FORMS              1
 #define WWW_CONF_USER_AGENT "Contiki/3.x (LOLIN32; http://www.contiki-os.org/)"

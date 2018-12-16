@@ -55,7 +55,7 @@ void htmlparser_word(char *word, unsigned char wordlen);
 #define HTMLPARSER_INPUTTYPE_SUBMIT 3
 #define HTMLPARSER_INPUTTYPE_IMAGE  4
 #define HTMLPARSER_INPUTTYPE_OTHER  5
-
+#define HTMLPARSER_INPUTTYPE_PASS   6
 
 /* Functions. */
 void htmlparser_init(void);

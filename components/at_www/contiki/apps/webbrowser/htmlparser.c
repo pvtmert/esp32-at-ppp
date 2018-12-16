@@ -474,6 +474,7 @@ parse_tag(void)
 	case HTMLPARSER_INPUTTYPE_NONE:
 	case HTMLPARSER_INPUTTYPE_TEXT:
 	case HTMLPARSER_INPUTTYPE_HIDDEN:
+    case HTMLPARSER_INPUTTYPE_PASS:
 	  htmlparser_inputfield(s.inputtype, s.inputvaluesize, s.inputvalue, s.inputname);
 	  break;
 	case HTMLPARSER_INPUTTYPE_SUBMIT:
@@ -491,6 +492,8 @@ parse_tag(void)
 	    s.inputtype = HTMLPARSER_INPUTTYPE_IMAGE;
 	  } else if(strncmp(s.tagattrparam, html_text, sizeof(html_text)) == 0) {
 	    s.inputtype = HTMLPARSER_INPUTTYPE_TEXT;
+      } else if(strncmp(s.tagattrparam, html_password, sizeof(html_password)) == 0) {
+          s.inputtype = HTMLPARSER_INPUTTYPE_PASS;
 	  } else if(strncmp(s.tagattrparam, html_hidden, sizeof(html_hidden)) == 0) {
 	    s.inputtype = HTMLPARSER_INPUTTYPE_HIDDEN;
 	  } else {

@@ -74,8 +74,6 @@ static char url[WWW_CONF_MAX_URLLEN + 1];
 static char webpage[WWW_CONF_WEBPAGE_WIDTH *
                     WWW_CONF_WEBPAGE_HEIGHT + 1];
 
-static char webclient_mimetype[64];
-
 /* The CTK widgets for the main window. */
 static struct ctk_window mainwindow;
 
@@ -139,8 +137,11 @@ static char history[WWW_CONF_HISTORY_SIZE][WWW_CONF_MAX_URLLEN];
 static unsigned char history_last;
 #endif /* WWW_CONF_HISTORY_SIZE > 0 */
 
+//static char cookie[2048];
 static esp_http_client_handle_t www_client = NULL;
+static char webclient_mimetype[64];
 esp_err_t www_event_handle(esp_http_client_event_t *evt);
+static char webclient_error = 0;
 
 struct linkattrib {
     struct ctk_hyperlink hyperlink;
@@ -338,6 +339,7 @@ webclient_err(int error)
             show_statustext(strerror(EINVAL)); // Bad URL = "Invalid argument"
             break;
         case ESP_ERR_HTTP_MAX_REDIRECT:
+            webclient_error = 1;
             show_statustext(strerror(EMLINK));
             break;
         case ESP_ERR_HTTP_CONNECT:
@@ -409,17 +411,15 @@ open_url(void)
 
     if (www_client)
     {
-        ESP_LOGE(TAG, "Initing client with url: %s", url);
+        ESP_LOGE(TAG, "Reusing client with url: %s", url);
 
-        // Reuse the client.
         esp_http_client_set_url(www_client, url);
         www_config.url = url;
     }
     else
     {
-        ESP_LOGE(TAG, "Reusing client with url: %s", url);
+        ESP_LOGE(TAG, "Initing client with url: %s", url);
 
-        // Initialize the client.
         www_config.url = url;
         www_config.event_handler = www_event_handle;
         www_client = esp_http_client_init(&www_config);
@@ -432,15 +432,15 @@ open_url(void)
 #ifdef WWW_CONF_USER_AGENT
     webclient_err(esp_http_client_set_header(www_client, "User-Agent", WWW_CONF_USER_AGENT));
     webclient_err(esp_http_client_set_header(www_client, "Connection", "Close"));
+   /* if (cookie[0])
+    {
+        ESP_LOGE(TAG, "setting cookie header: %s", cookie);
+        webclient_err(esp_http_client_set_header(www_client, "Cookie", cookie));
+    }*/
 
 #endif
     show_statustext("Connecting...");
     webclient_err(esp_http_client_perform(www_client));
-    
-    ESP_LOGE(TAG, "doing own esp_http_client_cleanup");
-    esp_http_client_cleanup(www_client);
-    ESP_LOGE(TAG, "done own esp_http_client_cleanup");
-    www_client = NULL;
 }
 /*-----------------------------------------------------------------------------------*/
 /* set_link(link):
@@ -469,19 +469,26 @@ set_link(char *link)
          within the same web site. We find the start of the filename of
          the current URL and paste the contents of this link there, and
          head off to the new URL. */
-        for(urlptr = &url[7];
-            *urlptr != 0 && *urlptr != ISO_slash;
-            ++urlptr);
+        for(urlptr = url+8; *urlptr != 0 && *urlptr != ISO_slash; ++urlptr);
         strncpy(urlptr, link, WWW_CONF_MAX_URLLEN - (urlptr - url));
+        //ESP_LOGD(TAG, "final non relative link: %s", url);
     } else {
         /* A fully relative link is found. We find the last slash in the
          current URL and paste the link there. */
-        
         /* XXX: we should really parse any ../ in the link as well. */
+        ESP_LOGE(TAG, "relative link: %s", link);
+
         for(urlptr = url + strlen(url);
             urlptr != url && *urlptr != ISO_slash;
             --urlptr);
-        ++urlptr;
+            ++urlptr;
+        // Unless it was a double slash, then add a slash and link to end of url.
+        if (*(urlptr-2) == ISO_slash)
+        {
+            urlptr = url + strlen(url);
+            *urlptr++ = ISO_slash;
+            *urlptr = '\0'; // Not sure if this is needed.
+        }
         strncpy(urlptr, link, WWW_CONF_MAX_URLLEN - (urlptr - url));
     }
 }
@@ -508,6 +515,10 @@ log_back(void)
 static void
 quit(void)
 {
+    ESP_LOGE(TAG, "doing own esp_http_client_cleanup");
+    esp_http_client_cleanup(www_client);
+    www_client = NULL;
+    
     ctk_window_close(&mainwindow);
     process_exit(&www_process);
     LOADER_UNLOAD();
@@ -532,6 +543,8 @@ PROCESS_THREAD(www_process, ev, data)
     memset(webpage, 0, sizeof(webpage));
     ctk_window_new(&mainwindow, WWW_CONF_WEBPAGE_WIDTH,
                    WWW_CONF_WEBPAGE_HEIGHT+5, "Web browser");
+    //cookie[0] = 0;
+    
     make_window();
 #ifdef WWW_CONF_HOMEPAGE
     strncpy(editurl, WWW_CONF_HOMEPAGE, sizeof(editurl));
@@ -875,6 +888,7 @@ add_pagewidget(char *text, unsigned char size, char *attrib, unsigned char type,
 #endif
                     strcpy(textptr->textentry.text, text);
                     strcpy(textptr->name, attrib);
+
                     if(size) {
                         CTK_WIDGET_SET_FLAG(&textptr->textentry, CTK_WIDGET_FLAG_MONOSPACE);
                         CTK_WIDGET_ADD(&mainwindow, &textptr->textentry);
@@ -999,6 +1013,10 @@ htmlparser_inputfield(unsigned char type, unsigned char size, char *text, char *
 {
     if(type == HTMLPARSER_INPUTTYPE_HIDDEN) {
         add_pagewidget(text,    0, name, CTK_WIDGET_TEXTENTRY, 0);
+    } else if(type == HTMLPARSER_INPUTTYPE_PASS) {
+        ESP_LOGE(TAG, "HTTP_EVENT_ON_CONNECTED");
+
+        add_pagewidget(text, size, name, CTK_WIDGET_TEXTENTRY, 2);
     } else {
         add_pagewidget(text, size, name, CTK_WIDGET_TEXTENTRY, 1);
     }
@@ -1087,6 +1105,13 @@ esp_err_t www_event_handle(esp_http_client_event_t *evt)
     switch(evt->event_id) {
         case HTTP_EVENT_ERROR:
             ESP_LOGE(TAG, "HTTP_EVENT_ERROR");
+            if (webclient_error)
+            {
+                ESP_LOGE(TAG, "doing cleanup after non-recoverable error.");
+                esp_http_client_cleanup(www_client);
+                www_client = NULL;
+                webclient_error = 0;
+            }
             webclient_aborted();
             break;
         case HTTP_EVENT_ON_CONNECTED:
@@ -1100,12 +1125,19 @@ esp_err_t www_event_handle(esp_http_client_event_t *evt)
             ESP_LOGE(TAG, "HTTP_EVENT_ON_HEADER");
             //printf("%s %.*s", evt->header_key, evt->data_len, (char*)evt->data);
 
-            if (strcmp("Content-Type", evt->header_key) == 0)
+            // http_strings.c includes ": " at the end of the key, so we need to remove it.
+            if (strncasecmp(http_content_type, evt->header_key, strlen(http_content_type)-2) == 0)
                 strncpy(webclient_mimetype, evt->header_value, 64);
-
-            if (strcmp("Location", evt->header_key) == 0)
-                strncpy(url, evt->header_value, WWW_CONF_MAX_URLLEN);
             
+            if (strncasecmp(http_location, evt->header_key, strlen(http_location)-2) == 0)
+                set_link(evt->header_value);
+            /*
+            if (strcasecmp("Set-Cookie", evt->header_key) == 0)
+            {
+                ESP_LOGE(TAG, "got set-cookie header: %s", cookie);
+                strncpy(cookie+strlen(cookie), evt->header_value, (2048 - strlen(cookie)));
+                strncpy(cookie+strlen(cookie), "; ", (2048 - strlen(cookie)));
+            }*/
             break;
             show_url();
         case HTTP_EVENT_ON_DATA:
