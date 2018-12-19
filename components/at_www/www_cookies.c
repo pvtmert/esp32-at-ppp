@@ -52,19 +52,36 @@
 typedef enum http_parser_url_fields www_url_field;
 
 #ifndef WWW_CONF_MAX_COOKIES
-#define WWW_CONF_MAX_COOKIES 5
+#define WWW_CONF_MAX_COOKIES 10
 #endif
 
 #ifndef WWW_CONF_MAX_COOKIELEN
 #define WWW_CONF_MAX_COOKIELEN ( WWW_CONF_MAX_URLLEN * 2 )
 #endif
 
+#ifndef WWW_CONF_MAX_HOSTLEN
+#define WWW_CONF_MAX_HOSTLEN ( WWW_CONF_MAX_URLLEN / 2 )
+#endif
+
 struct host_cookies {
-    char host[WWW_CONF_MAX_URLLEN /2];
+    char host[WWW_CONF_MAX_HOSTLEN];
     www_cookie_t *cookies[WWW_CONF_MAX_COOKIES];
 };
 
 struct host_cookies cookie_list = {0};
+
+www_cookie_t *next_cookie(void)
+{
+    static www_cookie_t **cur_c = cookie_list.cookies;
+    static www_cookie_t **max_c = &cookie_list.cookies[WWW_CONF_MAX_COOKIES];
+    
+    if (cur_c < max_c && cur_c != NULL && *cur_c!= NULL)
+    {
+        return *cur_c++;
+    }
+    cur_c = cookie_list.cookies;
+    return NULL;
+}
 
 uint8_t get_url_field(const char *url, www_url_field field, const char **start_ptr)
 {
@@ -79,7 +96,7 @@ uint8_t get_url_field(const char *url, www_url_field field, const char **start_p
     
     len = purl.field_data[field].len;
     
-    *start_ptr = (url + purl.field_data[UF_HOST].off);
+    *start_ptr = (url + purl.field_data[field].off);
     
     return len;
 }
@@ -101,74 +118,82 @@ int8_t url_field_compare(const char *url, www_url_field field, const char *compa
     return dif;
 }
 
-// Called by add_cookie to parse header value into a new www_cookie.
+// Called by set_cookie to parse header value into a new www_cookie.
 www_cookie_t *parse_cookie(const char *setcookie_value)
 {
-    char *attrib, *value;
+    char *attrib, *value = NULL;
     www_cookie_t *new_cookie;
-    int len = strlen(setcookie_value);
+    
+    int len = strlen(setcookie_value)+1;
     if (len > WWW_CONF_MAX_COOKIELEN)
     {
         PRINTF(("Cookie longer than WWW_CONF_MAX_COOKIELEN\n  %s", setcookie_value));
         return NULL;
     }
-
-    if ((new_cookie = malloc(sizeof(www_cookie_t))) == NULL)
+    
+    if (!(new_cookie = malloc(sizeof(www_cookie_t))))
     {
         PRINTF(("Cookie memory allocation error"));
         return new_cookie;
     }
     memset(new_cookie, 0, sizeof(www_cookie_t));
     
+    //PRINTF(("Cookie name: %p , NULL: %p", (void *)new_cookie->name, (void *)NULL));
+    new_cookie->name =  NULL;
+    
     //raw = strdup(setcookie_value);
     new_cookie->raw = malloc(len);
     strncpy(new_cookie->raw, setcookie_value, len);
     
-    attrib = new_cookie->raw;
-    
     new_cookie->max_age = 100;
-    do
+    
+    for (attrib = strtok(new_cookie->raw, ";"); attrib; attrib = strtok(NULL, ";" ))
     {
         char *max_str = &attrib[strlen(attrib)];
         while ( attrib != '\0' && isspace((int)*attrib) )
             attrib++;
         
         value = strchr(attrib, '=' );
+        
+        if (value != NULL)
         {
-            if (value)
-            {
-                while (value < max_str && isspace((int)*value))
-                    value++;
-            }
+            *value = '\0';
+            value++; // go past the '=';
+            while (value < max_str && isspace((int)*value))
+                value++;
             
-            if (strncasecmp(attrib, "domain", 6) == 0)
-                new_cookie->domain = value;
-            
-            else if (strncasecmp(attrib, "path", 4) == 0)
-                new_cookie->path = value;
-            
-            else if (strncasecmp(attrib, "secure", 6) == 0)
-                new_cookie->secure = 1;
-#ifdef WWW_COOKIE_TRACK_EXPIRES
-            else if (strncasecmp(attrib, "expires", 7) == 0)
-                new_cookie->expires = value;
-#endif
-            else if (strncasecmp(attrib, "max-age", 7) == 0)
-                new_cookie->max_age = (int)strtol(value, NULL, 10);
-#ifdef WWW_COOKIE_TRACK_HTTP_ONLY
-            else if (strncasecmp(attrib, "httponly", 8) == 0)
-                new_cookie->http_only = 1;
-#endif
-            else if (new_cookie->name ==  NULL && attrib && *attrib)
-            {
-                new_cookie->name  = attrib;
-                new_cookie->value = value;
-            }
-            else
-                PRINTF(("Cookie parse unhandled attribute: %s\n", attrib));
+            PRINTF(("Cookie attribute: %s value: %s\n", attrib, value));
+        } else
+        {
+            PRINTF(("Cookie attribute: %s \n", attrib));
         }
         
-    }  while (strtok(attrib, ";" ) != NULL);
+        if (strncasecmp(attrib, "domain", 6) == 0)
+            new_cookie->domain = value;
+        
+        else if (strncasecmp(attrib, "path", 4) == 0)
+            new_cookie->path = value;
+        
+        else if (strncasecmp(attrib, "secure", 6) == 0)
+            new_cookie->secure = 1;
+#ifdef WWW_COOKIE_TRACK_EXPIRES
+        else if (strncasecmp(attrib, "expires", 7) == 0)
+            new_cookie->expires = value;
+#endif
+        else if (strncasecmp(attrib, "max-age", 7) == 0)
+            new_cookie->max_age = (int)strtol(value, NULL, 10);
+#ifdef WWW_COOKIE_TRACK_HTTP_ONLY
+        else if (strncasecmp(attrib, "httponly", 8) == 0)
+            new_cookie->http_only = 1;
+#endif
+        else if (new_cookie->name ==  NULL && attrib && *attrib)
+        {
+            new_cookie->name  = attrib;
+            new_cookie->value = value;
+        }
+        else
+            PRINTF(("Cookie parse unhandled attribute: %s\n", attrib));
+    }
     
     return new_cookie;
 }
@@ -183,6 +208,9 @@ int8_t set_cookie_host(char *curr_host, const char *url)
     int newlen = get_url_field(url, UF_HOST, &start_ptr);
     int curlen = strlen(curr_host);
     
+    if (newlen >= WWW_CONF_MAX_HOSTLEN)
+        newlen = WWW_CONF_MAX_HOSTLEN-1;
+        
     if (newlen == curlen)
         dif = (int8_t)memcmp(start_ptr, curr_host, curlen);
     else
@@ -194,19 +222,28 @@ int8_t set_cookie_host(char *curr_host, const char *url)
         memcpy(curr_host, start_ptr, newlen);
         curr_host[newlen] = '\0';
         // and dump the old cookies.
-        del_cookies(cookie_list.cookies);
+        del_cookies();
     }
     return dif;
 }
 
-// Parse the header string value, make a new www_cookie and add it to the cookie list.
-uint8_t add_cookie(const char *setcookie_value, const char *url)
+// Delete the indicated cookie, releasing string resources.
+void del_cookie(www_cookie_t *c)
 {
-    static int i = 0;
-    /* Get the host for the url. If it doesnt match current host, dump the
+    free(c->raw);
+    free(c);
+    c = NULL;
+}
+
+// Parse the header string value, make a new www_cookie and add it to the cookie list.
+uint8_t set_cookie(const char *setcookie_value, const char *url)
+{
+    /* Get the host of the url. If it doesnt match current host, dump the
      * cookies, and start over.
      */
-    PRINTF(("Cookie got set-cookie header: %s", setcookie_value));
+    static int old_loc = 0;
+    int i = 0, found = 0;
+    PRINTF(("Cookie got set-cookie header: %s\n", setcookie_value));
     
     // Set cookie host and delete the cookie list, if different.
     set_cookie_host(cookie_list.host, url);
@@ -214,72 +251,73 @@ uint8_t add_cookie(const char *setcookie_value, const char *url)
     www_cookie_t *new_cook;
     if ((new_cook = parse_cookie(setcookie_value)))
     {
-        if (i >= WWW_CONF_MAX_COOKIES)
+        www_cookie_t *c;
+        while ((c = next_cookie()))
         {
-            i = 0;
-            PRINTF(("Cookie list reached WWW_CONF_MAX_COOKIES, over-writing oldest"));
+            if (c->name == new_cook->name)
+            {
+                PRINTF(("Cookie list replacing same name\n"));
+                c = new_cook;
+                found = 1;
+            }
+            i++;
         }
-        cookie_list.cookies[i] = new_cook;
-        return ++i;
+        
+        if (!found)
+        {
+            if (i >= WWW_CONF_MAX_COOKIES)
+            {
+                PRINTF(("Cookie list at WWW_CONF_MAX_COOKIES, over-writing oldest\n"));
+                del_cookie(cookie_list.cookies[old_loc]);
+                cookie_list.cookies[old_loc] = new_cook;
+                i = old_loc++;
+            }
+            else
+            {
+                cookie_list.cookies[i] = new_cook;
+            }
+        }
+        return i;
     }
     return 0;
 }
 
-
-// Delete the indicated cookie, releasing string resources.
-void del_cookie(www_cookie_t **cookie)
-{
-    www_cookie_t *c = *cookie;
-    free(c->raw);
-    free(c);
-    c = NULL;
-}
-
-
 // Delete all cookies from the cookie list, releasing string resources.
-uint8_t del_cookies(www_cookie_t **cookies)
+uint8_t del_cookies(void)
 {
+    www_cookie_t *c;
     int i = 0;
-    www_cookie_t **cur_cook, **max_cook;
     
-    for (cur_cook=cookies, max_cook=&cookies[WWW_CONF_MAX_COOKIES];
-         cur_cook < max_cook;
-         cur_cook++)
+    while ((c = next_cookie()))
     {
-        if (*cur_cook)
-        {
-            i++;
-            del_cookie(cur_cook);
-        }
+        del_cookie(c);
+        i++;
     }
     return i;
 }
+
 
 // Sets the relevant cookie header value string to send.
 char *get_cookie(const char *url)
 {
     static char cookie_buf[WWW_CONF_MAX_URLLEN*4];
-    cookie_buf[0]= '\0';
+    cookie_buf[0] = '\0';
     
     //char *domain = (c->domain) ? c->domain : c->inf_domain;
     //int dlen = strlen(domain);
     // check if different host.
     set_cookie_host(cookie_list.host, url);
     
-    www_cookie_t **max_c = &cookie_list.cookies[WWW_CONF_MAX_COOKIES];
-    for (www_cookie_t **c_ptr = cookie_list.cookies; c_ptr < max_c; c_ptr++)
+    www_cookie_t *c;
+    while ((c = next_cookie()))
     {
         int field_len;
         const char *start_ptr;
         int avail;
         
-        www_cookie_t *c = *c_ptr;
-        if (c == NULL)
-            continue;
-        
         if (c->max_age == 0)
         {
-            PRINTF(("Skipping 0 Max-Age cookie\n"));
+            PRINTF(("Cookie skipping 0 Max-Age\n"));
             break;
         }
         if (c->domain)
@@ -295,7 +333,7 @@ char *get_cookie(const char *url)
             field_len = get_url_field(url, UF_SCHEMA, &start_ptr);
             if (strncmp(start_ptr, http_https, 5) != 0)
             {
-                PRINTF(("Skipping secure cookie for insecure url.\n"));
+                PRINTF(("Cookie skipping secure for insecure url: %s\n", c->name));
                 break;
             }
         }
@@ -305,7 +343,7 @@ char *get_cookie(const char *url)
             field_len = get_url_field(url, UF_SCHEMA, &start_ptr);
             if ( strncmp(start_ptr, http_http, 4) != 0)
             {
-                PRINTF(("Skipping http-only cookie for non http url.\n"));
+                PRINTF(("Cookie Skipping Http-Only for non http url.\n"));
                 break;
             }
         }
@@ -316,6 +354,10 @@ char *get_cookie(const char *url)
         else
             PRINTF(("Cookie ran out of output space: %s\n", cookie_buf));
     }
-    
-    return cookie_buf;
+    if (cookie_buf[0])
+    {
+        PRINTF(("Set-Cookie buffer: \n%s\n",cookie_buf));
+        return cookie_buf;
+    }
+    return NULL; // http_header_set() will delete the header.
 }

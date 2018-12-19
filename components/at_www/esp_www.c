@@ -384,7 +384,7 @@ open_url(void)
     end_ptr = url + strlen(url);
     /* Get rid  of any whitespaces and unprintables in the url. */
     for(rd_ptr = wt_ptr = url; rd_ptr < end_ptr; ++rd_ptr) {
-        if(!isspace((int)*rd_ptr) || !isprint((int)*rd_ptr )) {
+        if(!isspace((int)*rd_ptr) /*&& isprint((int)*rd_ptr) */) {
             *wt_ptr++ = *rd_ptr;
         }
     }
@@ -1008,8 +1008,6 @@ htmlparser_inputfield(unsigned char type, unsigned char size, char *text, char *
     if(type == HTMLPARSER_INPUTTYPE_HIDDEN) {
         add_pagewidget(text,    0, name, CTK_WIDGET_TEXTENTRY, 0);
     } else if(type == HTMLPARSER_INPUTTYPE_PASS) {
-        ESP_LOGE(TAG, "HTTP_EVENT_ON_CONNECTED");
-
         add_pagewidget(text, size, name, CTK_WIDGET_TEXTENTRY, 2);
     } else {
         add_pagewidget(text, size, name, CTK_WIDGET_TEXTENTRY, 1);
@@ -1126,7 +1124,7 @@ esp_err_t www_event_handle(esp_http_client_event_t *evt)
                 set_link(evt->header_value);
 #ifdef WWW_CONF_COOKIES
             if (strcasecmp("Set-Cookie", evt->header_key) == 0)
-                add_cookie(evt->header_value, url);
+                set_cookie(evt->header_value, url);
 #endif /*WWW_CONF_COOKIES*/
             break;
             show_url();

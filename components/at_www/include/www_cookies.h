@@ -51,10 +51,10 @@ typedef struct www_cookie {
 
 
 // Parse the header string value, make a new www_cookie and add it to the cookie list.
-uint8_t add_cookie(const char *setcookie_value, const char *url);
+uint8_t set_cookie(const char *setcookie_value, const char *url);
 
 // Delete all cookies from the cookie list, releasing string resources.
-uint8_t del_cookies(www_cookie_t **cookies);
+uint8_t del_cookies(void);
 
 // Returns a the relevant cookie header value string.
 char *get_cookie(const char *url);
