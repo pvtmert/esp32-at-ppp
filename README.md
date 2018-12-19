@@ -1,7 +1,10 @@
 # This Fork
-Contains code to run a mini webbrowser (more like html parser).
-* AT+WEB= :    \<URI\>  download and parse webpage at URI.
-* AT+GET= :    \<URI\>  download raw file at URI.
+
+Contains code to run the webbrowser from [Contiki](https://github.com/contiki-os/contiki) that is modified to use the ESP32 web client (with SSL) and a VT42/VT100 interface.
+
+* AT+WEB  :    start the web browser.
+* AT+WEB= :    \<URI\>  open web browser at URI.
+* AT+GET= :    \<URI\>  download raw html at URI.
 
 Contains code to use lwip PPP client or server.
 

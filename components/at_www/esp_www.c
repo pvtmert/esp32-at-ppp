@@ -1,6 +1,6 @@
 /*
   * Based on Contik's www.c Copyright (c) 2002, Adam Dunkels.
-  * Mdifications for esp32  Copyright (c) 2018, Eric Pooch. 
+  * Mdifications for esp32_at  Copyright (c) 2018, Eric Pooch.
   * All rights reserved.
   *
   * Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,7 @@
   * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
   * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   *
-  * This file is part of the Contiki desktop environment
+  * This file was part of the Contiki desktop environment
   *
   *
   */
@@ -59,6 +59,10 @@
 
 #include "htmlparser.h"
 #include "http-strings.h"
+
+#ifdef WWW_CONF_COOKIES
+#include "www_cookies.h"
+#endif
 
 #include "www.h"
 
@@ -137,7 +141,6 @@ static char history[WWW_CONF_HISTORY_SIZE][WWW_CONF_MAX_URLLEN];
 static unsigned char history_last;
 #endif /* WWW_CONF_HISTORY_SIZE > 0 */
 
-//static char cookie[2048];
 static esp_http_client_handle_t www_client = NULL;
 static char webclient_mimetype[64];
 esp_err_t www_event_handle(esp_http_client_event_t *evt);
@@ -370,8 +373,7 @@ webclient_err(int error)
 /* open_url():
  *
  * Called when the URL present in the global "url" variable should be
- * opened. It will call the hostname resolver as well as the HTTP
- * client requester.
+ * opened. It will call the HTTP client requester.
  */
 static void
 open_url(void)
@@ -380,9 +382,9 @@ open_url(void)
     static esp_http_client_config_t www_config;
 
     end_ptr = url + strlen(url);
-    /* Get rid  of any whitespaces in the url. */
+    /* Get rid  of any whitespaces and unprintables in the url. */
     for(rd_ptr = wt_ptr = url; rd_ptr < end_ptr; ++rd_ptr) {
-        if(!isspace((int)*rd_ptr)) {
+        if(!isspace((int)*rd_ptr) || !isprint((int)*rd_ptr )) {
             *wt_ptr++ = *rd_ptr;
         }
     }
@@ -393,7 +395,7 @@ open_url(void)
         return;
     }
     
-    /* See if the URL starts with http://, otherwise prepend it. */
+    /* See if the URL starts with http:// or https://, otherwise prepend it. */
     if(strncmp(url, http_http, 7) != 0 && strncmp(url, http_https, 8) != 0  ) {
         while(wt_ptr >= url) {
             *(wt_ptr + 7) = *wt_ptr;
@@ -406,9 +408,10 @@ open_url(void)
      * Check url first before sending to esp_http_client_init. */
     struct http_parser_url purl;
     http_parser_url_init(&purl);
+    
     if (webclient_err(http_parser_parse_url(url, strlen(url), 0, &purl)))
         return;
-
+    
     if (www_client)
     {
         ESP_LOGE(TAG, "Reusing client with url: %s", url);
@@ -431,14 +434,12 @@ open_url(void)
     }
 #ifdef WWW_CONF_USER_AGENT
     webclient_err(esp_http_client_set_header(www_client, "User-Agent", WWW_CONF_USER_AGENT));
-    webclient_err(esp_http_client_set_header(www_client, "Connection", "Close"));
-   /* if (cookie[0])
-    {
-        ESP_LOGE(TAG, "setting cookie header: %s", cookie);
-        webclient_err(esp_http_client_set_header(www_client, "Cookie", cookie));
-    }*/
-
 #endif
+#ifdef WWW_CONF_COOKIES
+    webclient_err(esp_http_client_set_header(www_client, "Cookie", get_cookie(url)));
+#endif
+    webclient_err(esp_http_client_set_header(www_client, "Connection", "Close"));
+
     show_statustext("Connecting...");
     webclient_err(esp_http_client_perform(www_client));
 }
@@ -543,8 +544,6 @@ PROCESS_THREAD(www_process, ev, data)
     memset(webpage, 0, sizeof(webpage));
     ctk_window_new(&mainwindow, WWW_CONF_WEBPAGE_WIDTH,
                    WWW_CONF_WEBPAGE_HEIGHT+5, "Web browser");
-    //cookie[0] = 0;
-    
     make_window();
 #ifdef WWW_CONF_HOMEPAGE
     strncpy(editurl, WWW_CONF_HOMEPAGE, sizeof(editurl));
@@ -682,11 +681,6 @@ PROCESS_THREAD(www_process, ev, data)
 static void
 set_url(const char *host, uint16_t port, const char *file)
 {
-
-    show_url();
-    
-    return;
-    /* Something is crashing down there. */
     char *urlptr;
     
     memset(url, 0, WWW_CONF_MAX_URLLEN);
@@ -750,7 +744,7 @@ webclient_connected(void)
 
     show_statustext("Request sent...");
     // Crashing here FIXME!!!
-    //set_url(...);
+    //set_url(webclient_hostname(), webclient_port(), webclient_filename());
 
     show_url();
 
@@ -1101,7 +1095,6 @@ formsubmit(struct inputattrib *trigger)
 /*-----------------------------------------------------------------------------------*/
 esp_err_t www_event_handle(esp_http_client_event_t *evt)
 {
-    
     switch(evt->event_id) {
         case HTTP_EVENT_ERROR:
             ESP_LOGE(TAG, "HTTP_EVENT_ERROR");
@@ -1131,13 +1124,10 @@ esp_err_t www_event_handle(esp_http_client_event_t *evt)
             
             if (strncasecmp(http_location, evt->header_key, strlen(http_location)-2) == 0)
                 set_link(evt->header_value);
-            /*
+#ifdef WWW_CONF_COOKIES
             if (strcasecmp("Set-Cookie", evt->header_key) == 0)
-            {
-                ESP_LOGE(TAG, "got set-cookie header: %s", cookie);
-                strncpy(cookie+strlen(cookie), evt->header_value, (2048 - strlen(cookie)));
-                strncpy(cookie+strlen(cookie), "; ", (2048 - strlen(cookie)));
-            }*/
+                add_cookie(evt->header_value, url);
+#endif /*WWW_CONF_COOKIES*/
             break;
             show_url();
         case HTTP_EVENT_ON_DATA:

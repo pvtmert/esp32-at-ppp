@@ -536,6 +536,7 @@ parse_word(char *data, uint8_t dlen)
   char *pc, *end;
 
   end = data+dlen;
+  pc = data;
 
   switch(s.minorstate) {
   case MINORSTATE_TEXT:
