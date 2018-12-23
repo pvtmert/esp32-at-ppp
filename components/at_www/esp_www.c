@@ -378,6 +378,8 @@ webclient_err(int error)
 static void
 open_url(void)
 {
+    ESP_LOGE(TAG, "open_url request");
+
     char *rd_ptr, *wt_ptr, *end_ptr;
     static esp_http_client_config_t www_config;
 
@@ -573,7 +575,7 @@ PROCESS_THREAD(www_process, ev, data)
          } else */if(ev == ctk_signal_widget_activate) {
              if(w == (struct ctk_widget *)&gobutton ||
                 w == (struct ctk_widget *)&urlentry) {
-                 start_loading();
+                 //start_loading(); // in webclient_connected()
                  firsty = 0;
 #if WWW_CONF_HISTORY_SIZE > 0
                  log_back();
@@ -587,7 +589,7 @@ PROCESS_THREAD(www_process, ev, data)
 #if WWW_CONF_HISTORY_SIZE > 0
              } else if(w == (struct ctk_widget *)&backbutton) {
                  firsty = 0;
-                 start_loading();
+                 //start_loading(); // in webclient_connected()
                  --history_last;
                  /* Note: history_last is unsigned ! */
                  if(history_last > WWW_CONF_HISTORY_SIZE) {
@@ -600,7 +602,7 @@ PROCESS_THREAD(www_process, ev, data)
 #endif /* WWW_CONF_HISTORY_SIZE > 0 */
              } else if(w == (struct ctk_widget *)&downbutton) {
                  firsty = pagey + WWW_CONF_WEBPAGE_HEIGHT - 2;
-                 start_loading();
+                 //start_loading(); // in webclient_connected()
                  open_url();
                  CTK_WIDGET_FOCUS(&mainwindow, &downbutton);
              } else if(w == (struct ctk_widget *)&stopbutton) {
@@ -653,7 +655,7 @@ PROCESS_THREAD(www_process, ev, data)
              set_link(w->widget.hyperlink.url);
              show_url();
              open_url();
-             start_loading();
+             //start_loading(); // in webclient_connected()
              CTK_WIDGET_FOCUS(&mainwindow, &stopbutton);
          } else if(ev == ctk_signal_hyperlink_hover) {
              if(CTK_WIDGET_TYPE((struct ctk_widget *)data) == CTK_WIDGET_HYPERLINK) {
@@ -665,7 +667,7 @@ PROCESS_THREAD(www_process, ev, data)
                  show_statustext(statustexturl);
              }
          } else if(ev == ctk_signal_window_close ||
-                   ev == PROCESS_EVENT_EXIT) {
+             ev == PROCESS_EVENT_EXIT) {
              quit();
          }
     }
@@ -942,8 +944,7 @@ htmlparser_newline(void)
     if(y == WWW_CONF_WEBPAGE_HEIGHT) {
         loading = 0;
         ESP_LOGE(TAG, "reached WWW_CONF_WEBPAGE_HEIGHT");
-        if (www_client)
-            esp_http_client_close(www_client);
+        esp_http_client_close(www_client);
     }
 }
 /*-----------------------------------------------------------------------------------*/
@@ -1087,7 +1088,7 @@ formsubmit(struct inputattrib *trigger)
     
     show_url();
     open_url();
-    start_loading();
+    //start_loading(); // in webclient_connected()
 }
 #endif /* WWW_CONF_FORMS */
 /*-----------------------------------------------------------------------------------*/
