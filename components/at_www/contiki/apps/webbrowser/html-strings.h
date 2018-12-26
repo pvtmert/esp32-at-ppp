@@ -36,3 +36,5 @@ extern const char html_hidden[8];
 
 extern const char html_pre[5];
 extern const char html_password[10];
+extern const char html_method[8];
+extern const char html_post[6];

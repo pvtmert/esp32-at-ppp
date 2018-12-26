@@ -107,7 +107,12 @@ const char html_hidden[8] =
 const char html_pre[5] =
 /* "pre\0" */
 {'p', 'r', 'e', 00, };
-
 const char html_password[10] =
 /* "password\0" */
 {'p', 'a', 's', 's', 'w', 'o', 'r', 'd', 00, };
+const char html_method[8] =
+/* "method\0" */
+{'m', 'e', 't', 'h', 'o', 'd', 00, };
+const char html_post[6] =
+/* "post\0" */
+{'p', 'o', 's', 't', 00, };
