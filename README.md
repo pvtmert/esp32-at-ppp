@@ -1,6 +1,6 @@
 # This Fork
 
-Contains code to run the webbrowser from [Contiki](https://github.com/contiki-os/contiki) that is modified to use the ESP32 web client (with SSL) and a VT42/VT100 interface.
+Contains code to run the webbrowser from [Contiki](https://github.com/contiki-os/contiki) that is modified to use the ESP32 web client (with SSL) and a VT52/VT100 interface.
 
 * AT+WEB  :    start the web browser.
 * AT+WEB= :    \<URI\>  open web browser at URI.
