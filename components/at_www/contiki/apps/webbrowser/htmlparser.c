@@ -157,6 +157,7 @@ struct htmlparser_state {
 
 #if WWW_CONF_FORMS
   char formaction[WWW_CONF_MAX_FORMACTIONLEN + 1];
+  unsigned char formmethod;
   unsigned char inputtype;
   char inputname[WWW_CONF_MAX_INPUTNAMELEN + 1];
   char inputvalue[WWW_CONF_MAX_INPUTVALUELEN + 1];
@@ -241,6 +242,7 @@ init_input(void)
   s.inputtype = HTMLPARSER_INPUTTYPE_NONE;
   s.inputname[0] = s.inputvalue[0] =
   s.formaction[WWW_CONF_MAX_FORMACTIONLEN] =
+  s.formmethod =
   s.inputname[WWW_CONF_MAX_INPUTNAMELEN] =
   s.inputvalue[WWW_CONF_MAX_INPUTVALUELEN] = 0;
   s.inputvaluesize = 20; /* De facto default size */
@@ -449,7 +451,7 @@ parse_tag(void)
     /* First check if we are called at the end of a form tag. If
        so, we should propagate the form action. */
     if(s.tagattr[0] == 0 && s.formaction[0] != 0) {
-      htmlparser_form(s.formaction);
+      htmlparser_form(s.formaction, s.formmethod);
       init_input();
     } else {
       PRINTF(("Form tag\n"));
@@ -457,6 +459,11 @@ parse_tag(void)
       if(strncmp(s.tagattr, html_action, sizeof(html_action)) == 0) {
         PRINTF(("Form action '%s'\n", s.tagattrparam));
         strncpy(s.formaction, s.tagattrparam, WWW_CONF_MAX_FORMACTIONLEN - 1);
+      } else if (strncmp(s.tagattr, html_method, sizeof(html_method)) == 0) {
+        PRINTF(("Form method '%s'\n", s.tagattrparam));
+        if (strncmp(s.tagattrparam, html_post, sizeof(html_post)) == 0) {
+          s.formmethod = HTMLPARSER_FORM_METHOD_POST;
+        }
       }
     }
     break;

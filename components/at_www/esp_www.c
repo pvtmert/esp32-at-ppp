@@ -60,6 +60,9 @@
 #include "htmlparser.h"
 #include "http-strings.h"
 
+#ifdef WWW_CONF_POST_QUERY
+#include "www_post.h"
+#endif
 #ifdef WWW_CONF_COOKIES
 #include "www_cookies.h"
 #endif
@@ -155,6 +158,7 @@ struct inputattrib;
 
 struct formattrib {
     struct inputattrib *nextptr;
+    unsigned char method;
     char action[1];
 };
 
@@ -434,6 +438,19 @@ open_url(void)
         show_statustext("Out of memory error");
         return;
     }
+#ifdef WWW_CONF_POST_QUERY
+    char *post_data = post_query();
+    if (post_data[0])
+    {
+        ESP_LOGE(TAG, "post data: \n%s\n", post_data);
+        esp_http_client_set_method(www_client, HTTP_METHOD_POST);
+        esp_http_client_set_post_field(www_client, post_data, strlen(post_data));
+    } else {
+        esp_http_client_set_method(www_client, HTTP_METHOD_GET);
+        esp_http_client_set_post_field(www_client, NULL, 0);
+    }
+#endif
+    
 #ifdef WWW_CONF_USER_AGENT
     webclient_err(esp_http_client_set_header(www_client, "User-Agent", WWW_CONF_USER_AGENT));
 #endif
@@ -444,6 +461,7 @@ open_url(void)
 
     show_statustext("Connecting...");
     webclient_err(esp_http_client_perform(www_client));
+    ESP_LOGE(TAG, "Status Code: %d \n", esp_http_client_get_status_code(www_client));
 }
 /*-----------------------------------------------------------------------------------*/
 /* set_link(link):
@@ -742,6 +760,7 @@ webclient_closed(void)
 void
 webclient_connected(void)
 {
+    //crashing here on the 3rd load.
     start_loading();
 
     show_statustext("Request sent...");
@@ -987,13 +1006,14 @@ htmlparser_link(char *text, unsigned char textlen, char *url)
 /*-----------------------------------------------------------------------------------*/
 #if WWW_CONF_FORMS
 void
-htmlparser_form(char *action)
+htmlparser_form(char *action, unsigned char method)
 {
     formptr = (struct formattrib *)add_pageattrib(sizeof(struct formattrib) + strlen(action));
     if(formptr != NULL) {
         formptr->nextptr = NULL;
         currptr = (struct inputattrib *)formptr;
         strcpy(formptr->action, action);
+        formptr->method = method;
     }
 }
 /*-----------------------------------------------------------------------------------*/
@@ -1076,10 +1096,18 @@ formsubmit(struct inputattrib *trigger)
             name  = ((struct submitattrib *)input)->name;
             value = ((struct submitattrib *)input)->button.text;
         }
-        
+#ifdef WWW_CONF_POST_QUERY
+        if (form->method == HTTP_METHOD_POST)
+        {
+            add_post_query(name, value);
+        } else {
+#endif
         add_query(delimiter, name);
         add_query(ISO_eq, value);
         delimiter = ISO_ampersand;
+#ifdef WWW_CONF_POST_QUERY
+        }
+#endif
     }
     
 #if WWW_CONF_HISTORY_SIZE > 0

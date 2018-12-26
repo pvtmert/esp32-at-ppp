@@ -38,7 +38,7 @@
 
 /* Callbacks. */
 void htmlparser_link(char *text, unsigned char textlen, char *url);
-void htmlparser_form(char *action);
+void htmlparser_form(char *action, unsigned char method);
 void htmlparser_submitbutton(char *value,
 			     char *name);
 void htmlparser_inputfield(unsigned char type,
@@ -56,6 +56,9 @@ void htmlparser_word(char *word, unsigned char wordlen);
 #define HTMLPARSER_INPUTTYPE_IMAGE  4
 #define HTMLPARSER_INPUTTYPE_OTHER  5
 #define HTMLPARSER_INPUTTYPE_PASS   6
+
+#define HTMLPARSER_FORM_METHOD_GET  0
+#define HTMLPARSER_FORM_METHOD_POST 1
 
 /* Functions. */
 void htmlparser_init(void);
