@@ -176,11 +176,11 @@ www_cookie_t *parse_cookie(const char *setcookie_value)
             *value = '\0';  // split the string.
             value++;        // go the start of the value;
             
-            PRINTF(("Cookie parsed: %s  =  %s\n", attrib, value));
+            /*PRINTF(("Cookie parsed: %s  =  %s\n", attrib, value));
         }
         else
         {
-            PRINTF(("Cookie parsed: %s \n", attrib));
+            PRINTF(("Cookie parsed: %s \n", attrib));*/
         }
         
         if (strncasecmp(attrib, "domain", 6) == 0)
@@ -282,6 +282,7 @@ uint8_t set_cookie(const char *setcookie_value, const char *url)
             if (strncmp(c->name, n_cookie->name, WWW_CONF_MAX_COOKIELEN) == 0)
             {
                 PRINTF(("Cookies replacing same name\n"));
+                del_cookie(cookie_list.cookies[i]);
                 cookie_list.cookies[i] = n_cookie;
                 found = 1;
             }
@@ -330,10 +331,10 @@ uint8_t del_cookies(void)
 char *get_cookie(const char *url)
 {
     PRINTF(("Cookie request\n"));
-    
-    int blen;
-    static char cookie_buf[WWW_CONF_MAX_COOKIELEN*2];
+    static char cookie_buf[WWW_CONF_MAX_COOKIELEN*4];
+
     cookie_buf[0] = '\0';
+    cookie_buf[(WWW_CONF_MAX_COOKIELEN*4)-1] = '\0';
     
     // check if different host.
     set_cookie_host(cookie_list.host, url);
@@ -379,26 +380,25 @@ char *get_cookie(const char *url)
             }
         }
 #endif
-        if (cookie_buf[0])
+        char *loc = cookie_buf + strlen(cookie_buf);
+
+        if (loc != cookie_buf)
         {
             // There is already something in cookie buff, so add cookie delimiter.
-            strncat(cookie_buf, "; ", 2);
+            loc = stpncpy(loc, "; ", sizeof(cookie_buf)-(loc-cookie_buf)-1);
         }
-        blen = strlen(cookie_buf);
-        
-        strncat(cookie_buf, c->name, (sizeof(cookie_buf) - blen));
-        blen += strlen(c->name);
+        loc = stpncpy(loc, c->name, sizeof(cookie_buf)-(loc-cookie_buf)-1);
         
         if (c->value)
         {
-            char *loc = cookie_buf + blen;
             *loc = '=';
-            ++blen;
-            strncat(++loc, c->value, (sizeof(cookie_buf) - blen));
+            loc++;
+            *loc = '\0';
+            loc = stpncpy(loc, c->value, sizeof(cookie_buf)-(loc-cookie_buf)-1);
         }
     }
     
-    if (cookie_buf[0])
+    if (*cookie_buf)
     {
         PRINTF(("Set-Cookie buffer: \n%s\n", cookie_buf));
         return cookie_buf;

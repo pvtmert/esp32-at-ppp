@@ -52,7 +52,6 @@
 
 #define ctk_arch_isprint(c)  isprint((unsigned char)c)
 
-
 #define CTK_CONF_MOUSE_SUPPORT  0
 #define CTK_CONF_MENUS          0
 
@@ -100,5 +99,6 @@
 #define WWW_CONF_MAX_NUMPAGEWIDGETS ( VT_SCREEN_WIDTH / 2)
 #define WWW_CONF_FORMS              1
 #define WWW_CONF_COOKIES            1
+#define WWW_CONF_POST_QUERY         1
 #define WWW_CONF_USER_AGENT "Contiki/3.x (LOLIN32; http://www.contiki-os.org/)"
 #endif /* __CONTIKI_CONF_H__ */

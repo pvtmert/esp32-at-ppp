@@ -32,10 +32,10 @@ void clear_post_query(void);
 char *post_query(void);
 
 // urlencode the character c into string pointed to by dst.
-unsigned int urlencodechr(char *dst, int c);
+char *urlencodechr(char *dst, int c);
 
 // urlencode contents of src string into dst.
-unsigned int urlencode(char *dst, const char *src);
+char *urlencode(char *dst, const char *src);
 
 // urlencode contents of src string into dst.
 //int urlnencode(char *dst, const char *src, size_t len);

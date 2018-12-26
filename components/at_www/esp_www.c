@@ -442,26 +442,30 @@ open_url(void)
     char *post_data = post_query();
     if (post_data[0])
     {
-        ESP_LOGE(TAG, "post data: \n%s\n", post_data);
+        ESP_LOGE(TAG, "POST data: \n%s\n", post_data);
         esp_http_client_set_method(www_client, HTTP_METHOD_POST);
+        //esp_http_client_set_header(www_client, "Content-Type", "application/x-www-form-urlencoded");
         esp_http_client_set_post_field(www_client, post_data, strlen(post_data));
     } else {
+        ESP_LOGE(TAG, "GET");
         esp_http_client_set_method(www_client, HTTP_METHOD_GET);
         esp_http_client_set_post_field(www_client, NULL, 0);
     }
 #endif
     
-#ifdef WWW_CONF_USER_AGENT
-    webclient_err(esp_http_client_set_header(www_client, "User-Agent", WWW_CONF_USER_AGENT));
-#endif
 #ifdef WWW_CONF_COOKIES
     webclient_err(esp_http_client_set_header(www_client, "Cookie", get_cookie(url)));
 #endif
     webclient_err(esp_http_client_set_header(www_client, "Connection", "Close"));
+#ifdef WWW_CONF_USER_AGENT
+    webclient_err(esp_http_client_set_header(www_client, "User-Agent", WWW_CONF_USER_AGENT));
+#endif
+    esp_http_client_set_header(www_client, "Accept", "text/html");
 
     show_statustext("Connecting...");
     webclient_err(esp_http_client_perform(www_client));
     ESP_LOGE(TAG, "Status Code: %d \n", esp_http_client_get_status_code(www_client));
+    clear_post_query();
 }
 /*-----------------------------------------------------------------------------------*/
 /* set_link(link):
@@ -804,6 +808,8 @@ webclient_datahandler(char *data, uint16_t len)
             redraw_window();
 #endif /* CTK_CONF_WINDOWS */
 #endif /* WWW_CONF_WITH_WGET || WWW_CONF_WGET_EXEC */
+            htmlparser_word(data, len);
+
         }
     } else {
         /* Clear remaining parts of page. */
@@ -1143,7 +1149,7 @@ esp_err_t www_event_handle(esp_http_client_event_t *evt)
             break;
         case HTTP_EVENT_ON_HEADER:
             ESP_LOGE(TAG, "HTTP_EVENT_ON_HEADER");
-            //printf("%s %.*s", evt->header_key, evt->data_len, (char*)evt->data);
+            ESP_LOGE(TAG, "%s : %s", evt->header_key, evt->header_value);
 
             // http_strings.c includes ": " at the end of the key, so we need to remove it.
             if (strncasecmp(http_content_type, evt->header_key, strlen(http_content_type)-2) == 0)

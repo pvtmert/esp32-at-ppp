@@ -58,9 +58,9 @@ void add_post_query(char *key, char *value)
         query = post_data;
     }
     
-    query += urlencode(query, key);
+    query = urlencode(query, key);
     *query++ = ISO_eq;
-    query += urlencode(query, value);
+    query = urlencode(query, value);
 }
 
 
@@ -76,32 +76,32 @@ char *post_query(void)
 }
 
 
-unsigned int urlencodechr(char *dst, int c)
+char *urlencodechr(char *dst, int c)
 {
     if (isalnum(c) || strchr("-._~", c))
     {
         *dst = c;
-        return 1;
+        return dst+1;
     }
     else if (c == ISO_space)
     {
         *dst = ISO_plus;
-        return 1;
+        return dst+1;
     }
     snprintf(dst, 4, "%%%02X", c);
-    return 3;
+    return dst+3;
 }
 
-unsigned int urlencode(char *dst, const char *src)
+char *urlencode(char *dst, const char *src)
 {
     char *d;
     const char *s;
     
     for (d=dst, s=src; *s != '\0'; s++)
     {
-        d += urlencodechr(d, (int)*s);
+        d = urlencodechr(d, (int)*s);
     }
     *d = *s; // '\0'
     
-    return d - dst;
+    return d;
 }
