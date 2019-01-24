@@ -29,6 +29,10 @@ You will need to enable PPP support and PPP server support in the framework conf
 
 Component config ---> LWIP ---> Enable PPP support (new/experimental) --->  Enable PPP server support (new/experimental) 
 
+Also, enable the web command:
+
+Component config ---> AT ---> AT web command support.
+
 If you want, you can unpatch the source with:
 
 $  `make unpatch`
