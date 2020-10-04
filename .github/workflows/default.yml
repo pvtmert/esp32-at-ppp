@@ -16,7 +16,6 @@ on:
 
 env:
   IDF_VERSION: v3.2
-  TOOLCHAIN_VERSION: 1.22.0-80-g6c4433a
 
 jobs:
 
@@ -52,7 +51,6 @@ jobs:
         --rm=false
         --restart=no
         --name="${GITHUB_ACTOR}_${GITHUB_ACTION}_${GITHUB_RUN_NUMBER}_${GITHUB_RUN_ID}"
-        --build-arg="VERSION=${TOOLCHAIN_VERSION}"
         docker.pkg.github.com/pvtmert/esp32-at-ppp/dockerbuild
     - name: Copy Files Out
       run: docker cp "$(docker ps -qa | head -1):/home/output" "./binaries"
