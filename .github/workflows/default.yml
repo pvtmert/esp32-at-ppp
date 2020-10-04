@@ -55,11 +55,11 @@ jobs:
     - name: Copy Files Out
       run: docker cp "$(docker ps -qa | head -1):/home/output" "./binaries"
     - name: Copy Version into Output Directory
-      run: cp -v VERSION ./output/
-    - name: Compress artifacts
-      run: tar -cav -C ./binaries -f binaries.txz .
-    - name: Upload artifact
+      run: cp -v VERSION ./binaries/
+    - name: Compress Artifacts
+      run: tar -cav -C ./binaries -f artifacts.txz .
+    - name: Upload Archive
       uses: actions/upload-artifact@v1.0.0
       with:
         name: build.artifacts
-        path: ./binaries.txz
+        path: ./artifacts.txz
