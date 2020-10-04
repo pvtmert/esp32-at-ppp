@@ -1,0 +1,67 @@
+# github workflow
+name: automatic-release
+
+on:
+  push:
+    branches:
+    - develop
+    - master
+    - main
+
+  pull_request:
+    branches:
+    - main
+    - master
+    - develop
+
+env:
+  IDF_VERSION: v3.2
+  TOOLCHAIN_VERSION: 1.22.0-80-g6c4433a
+
+jobs:
+
+  build-all:
+    runs-on: ubuntu-latest
+    env:
+      OVERRIDE: nothing
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Tag Version
+      run: |
+        DATE="$(date +%Y%m%d)"
+        HASH="$(git describe --long --tags --dirty --always)"
+        echo "${DATE}-${HASH}" | tee VERSION
+    - name: Docker Build & Push
+      uses: docker/build-push-action@v1
+      with:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        registry: docker.pkg.github.com
+        repository: pvtmert/esp32-at-ppp/dockerbuild
+        add_git_labels: true
+        tag_with_ref: true
+        tag_with_sha: true
+        always_pull: true
+        dockerfile: Dockerfile
+        tags: latest
+        push: true
+        path: .
+    - name: Run container
+      run: docker run
+        --rm=false
+        --restart=no
+        --name="${GITHUB_ACTOR}_${GITHUB_ACTION}_${GITHUB_RUN_NUMBER}_${GITHUB_RUN_ID}"
+        --build-arg="VERSION=${TOOLCHAIN_VERSION}"
+        docker.pkg.github.com/pvtmert/esp32-at-ppp/dockerbuild
+    - name: Copy Files Out
+      run: docker cp "$(docker ps -qa | head -1):/data/output" "./binaries"
+    - name: Copy Version into Output Directory
+      run: cp -v VERSION ./output/
+    - name: Compress artifacts
+      run: tar -cav -C ./binaries -f binaries.txz .
+    - name: Upload artifact
+      uses: actions/upload-artifact@v1.0.0
+      with:
+        name: build.artifacts
+        path: ./binaries.txz
