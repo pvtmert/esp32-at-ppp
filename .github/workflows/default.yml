@@ -34,10 +34,10 @@ jobs:
     - name: Docker Build & Push
       uses: docker/build-push-action@v1
       with:
+        registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-        registry: docker.pkg.github.com
-        repository: pvtmert/esp32-at-ppp/dockerbuild
+        repository: pvtmert/esp32-at-ppp
         add_git_labels: true
         tag_with_ref: true
         tag_with_sha: true
@@ -51,7 +51,7 @@ jobs:
         --rm=false
         --restart=no
         --name="${GITHUB_ACTOR}_${GITHUB_ACTION}_${GITHUB_RUN_NUMBER}_${GITHUB_RUN_ID}"
-        docker.pkg.github.com/pvtmert/esp32-at-ppp/dockerbuild
+        ghcr.io/pvtmert/esp32-at-ppp
     - name: Copy Files Out
       run: docker cp "$(docker ps -qa | head -1):/home/output" "./binaries"
     - name: Copy Version into Output Directory
