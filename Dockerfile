@@ -40,26 +40,23 @@ RUN apt install -y \
 # 	gcc-xtensa-lx106 \
 # 	--no-install-recommends
 
-WORKDIR /data
-COPY ./esp-idf ./esp-idf
-
-ENV IDF_PATH "/data/esp-idf"
-RUN cd ./esp-idf \
-	&& python -m pip install --user -r requirements.txt
-
-SHELL [ "/bin/bash", "--init-file", "/data/esp-idf/add_path.sh", "-c" ]
+WORKDIR /home
+SHELL [ "/bin/bash", "--init-file", "/home/esp-idf/add_path.sh", "-c" ]
 COPY ./ ./
 
 RUN git reset --hard
 RUN git pull -s ours
 RUN git submodule update --init --recursive
 
+ENV IDF_PATH "/home/esp-idf"
+RUN cd ./esp-idf \
+	&& python -m pip install --user -r requirements.txt
 
 RUN make -j $(nproc) patch
 RUN make -j $(nproc) defconfig
 RUN patch -p1 -bi config.patch
 
-#ENTRYPOINT [ "/bin/bash", "--init-file", "/data/esp-idf/add_path.sh" ]
+#ENTRYPOINT [ "/bin/bash", "--init-file", "/home/esp-idf/add_path.sh" ]
 CMD mkdir -p ./output/ \
 	&& make -j $(nproc) bootloader      2>&1 | tee ./output/step.bootloader.log \
 	&& make -j $(nproc) build           2>&1 | tee ./output/step.build.log      \

@@ -55,7 +55,7 @@ jobs:
         --build-arg="VERSION=${TOOLCHAIN_VERSION}"
         docker.pkg.github.com/pvtmert/esp32-at-ppp/dockerbuild
     - name: Copy Files Out
-      run: docker cp "$(docker ps -qa | head -1):/data/output" "./binaries"
+      run: docker cp "$(docker ps -qa | head -1):/home/output" "./binaries"
     - name: Copy Version into Output Directory
       run: cp -v VERSION ./output/
     - name: Compress artifacts
